@@ -66,7 +66,7 @@ import { LOOKS, themeOf, type ArenaTheme } from '../world/Themes.js';
 import { SocialPanel, type SocialAction } from '../ui/SocialPanel.js';
 import { BallView } from '../world/BallView.js';
 import { CarView, Wheels, shadowTexture } from '../world/CarView.js';
-import { buildCar } from '../world/cars/CarModels.js';
+import { buildCar, setCarEnvironment } from '../world/cars/CarModels.js';
 import { warmScene } from './warmup.js';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
@@ -488,7 +488,8 @@ export class Game {
       report('Tuning the cars…');
       for (let i = 0; i < CAR_COUNT; i += 1) {
         buildCar(i);
-        this.wheels.pool(i);
+        this.wheels.pool(i, 0);
+        this.wheels.pool(i, 1);
         await nextFrame();
       }
       for (let i = 0; i < POOL_SIZE; i += 1) {
@@ -1219,6 +1220,7 @@ export class Game {
       this.envs.set(theme, env);
     }
     scene.environment = env;
+    setCarEnvironment(look.carEnv, look.carShade);
     if (this.bloom) this.bloom.strength = look.bloom;
     this.renderer.toneMappingExposure = look.exposure;
   }

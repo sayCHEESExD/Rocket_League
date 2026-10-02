@@ -26,40 +26,15 @@ import { S } from './units.js';
 
 export { GROUND as GROUND_Y };
 
-/** Paint: a clear-coated metallic that picks up the arena's reflections. */
-const paintMaterials = new Map<string, MeshStandardMaterial>();
-const paintMaterial = (decal: Texture | null): MeshStandardMaterial => {
-  const key = decal ? decal.uuid : 'plain';
-  let m = paintMaterials.get(key);
-  if (!m) {
-    m = new MeshStandardMaterial({ vertexColors: true, metalness: 0.45, roughness: 0.3, map: decal, envMapIntensity: 1.1 });
-    paintMaterials.set(key, m);
-  }
-  return m;
-};
-/** The paint again for stripes laid over the body: pulled towards the camera in depth, so it always wins. */
-const stripeMaterials = new Map<string, MeshStandardMaterial>();
-const stripeMaterial = (decal: Texture | null): MeshStandardMaterial => {
-  const key = decal ? decal.uuid : 'plain';
-  let m = stripeMaterials.get(key);
-  if (!m) {
-    m = paintMaterial(decal).clone();
-    m.polygonOffset = true;
-    m.polygonOffsetFactor = -2;
-    m.polygonOffsetUnits = -6;
-    stripeMaterials.set(key, m);
-  }
-  return m;
-};
-
+/** Tinted glass, dark like the reference cars' - the driver still shows through. */
 const glassMaterial = new MeshStandardMaterial({
-  color: 0x24384f,
-  metalness: 0.7,
-  roughness: 0.05,
+  color: 0x0c1520,
+  metalness: 0.85,
+  roughness: 0.04,
   transparent: true,
-  opacity: 0.42,
+  opacity: 0.6,
   depthWrite: false,
-  envMapIntensity: 1.6,
+  envMapIntensity: 2,
   side: DoubleSide,
   // the glass loft dips into the body and runs just under the roof lid: push it back in depth so
   // the opaque paint always wins where they nearly coincide (that was the shimmer on some cars)
@@ -94,7 +69,6 @@ const glowGeo = new PlaneGeometry(2.2, 1.4).rotateX(-Math.PI / 2);
 const glowMaterials = TEAMS.map(
   (t) => new MeshBasicMaterial({ map: glowTexture(), color: new Color(t.color).multiplyScalar(1.5), transparent: true, opacity: 0.8, blending: AdditiveBlending, depthWrite: false, toneMapped: false }),
 );
-const lightMaterial = new MeshBasicMaterial({ vertexColors: true, toneMapped: false, color: new Color(5, 5, 5) });
 
 const flameGeo = (() => {
   const g = new ConeGeometry(0.06, 0.5, 10, 1, true);
@@ -105,41 +79,56 @@ const flameGeo = (() => {
 const flameCore = new MeshBasicMaterial({ color: new Color(5.5, 5, 3.4), transparent: true, blending: AdditiveBlending, depthWrite: false, toneMapped: false });
 const flameOuter = new MeshBasicMaterial({ color: new Color(4, 1.4, 0.3), transparent: true, opacity: 0.85, blending: AdditiveBlending, depthWrite: false, toneMapped: false });
 
-/** Every wheel of one car model in one draw call. */
+/** Rubber for every tyre. */
+const tyreMaterial = new MeshStandardMaterial({ vertexColors: true, metalness: 0, roughness: 0.88, side: DoubleSide });
+
+/** Every wheel of one car model in two draw calls: the tyres and the rims. */
 export class WheelPool {
-  readonly mesh: InstancedMesh;
+  /** The tyres (first) and the rims. */
+  readonly meshes: InstancedMesh[];
   private n = 0;
   private readonly cap: number;
-  constructor(geometry: BufferGeometry, max: number) {
-    this.mesh = new InstancedMesh(geometry, new MeshStandardMaterial({ vertexColors: true, metalness: 0.5, roughness: 0.45, side: DoubleSide }), max);
-    this.mesh.frustumCulled = false;
-    this.mesh.castShadow = true;
-    this.mesh.name = 'wheels';
+  constructor(tyre: BufferGeometry, rim: BufferGeometry, rimMetal: number, max: number) {
+    const rimMaterial = new MeshStandardMaterial({ vertexColors: true, metalness: rimMetal, roughness: 0.26, side: DoubleSide, envMapIntensity: 1.3 });
+    this.meshes = [new InstancedMesh(tyre, tyreMaterial, max), new InstancedMesh(rim, rimMaterial, max)];
+    for (const m of this.meshes) {
+      m.frustumCulled = false;
+      m.castShadow = true;
+      m.name = 'wheels';
+    }
     this.cap = max;
   }
   begin(): void {
     this.n = 0;
   }
   push(m: Matrix4): void {
-    if (this.n < this.cap) this.mesh.setMatrixAt(this.n++, m);
+    if (this.n < this.cap) {
+      for (const mesh of this.meshes) mesh.setMatrixAt(this.n, m);
+      this.n += 1;
+    }
   }
   end(): void {
     // draw only the wheels in use (unused slots used to cost their full geometry)
-    this.mesh.count = this.n;
-    this.mesh.instanceMatrix.needsUpdate = true;
+    for (const mesh of this.meshes) {
+      mesh.count = this.n;
+      mesh.instanceMatrix.needsUpdate = true;
+    }
   }
 }
 
-/** One wheel pool per car model, created on demand and added to `parent`. */
+/** One wheel pool per car model and detail level, created on demand and added to `parent`. */
 export class Wheels {
   private readonly pools = new Map<number, WheelPool>();
   constructor(private readonly parent: Group | { add(o: unknown): void }, private readonly max: number) {}
-  pool(model: number): WheelPool {
-    let p = this.pools.get(model);
+  pool(model: number, lod = 0): WheelPool {
+    const key = model * 2 + lod;
+    let p = this.pools.get(key);
     if (!p) {
-      p = new WheelPool(buildCar(model).wheel, this.max);
-      this.pools.set(model, p);
-      (this.parent as Group).add(p.mesh);
+      const b = buildCar(model);
+      const l = b.lods[lod]!;
+      p = new WheelPool(l.tyre, l.rim, b.rimMetal, this.max);
+      this.pools.set(key, p);
+      for (const m of p.meshes) (this.parent as Group).add(m);
     }
     return p;
   }
@@ -191,9 +180,7 @@ const hip = new Vector3();
 export class CarView {
   readonly root = new Group();
   private body: Mesh;
-  private stripes: Mesh;
   private glass: Mesh;
-  private lights: Mesh;
   readonly rider = new PlayerCharacter();
   private readonly dresser: AvatarDresser;
   readonly tag = new NameTag();
@@ -217,8 +204,6 @@ export class CarView {
     this.body = new Mesh();
     this.body.castShadow = true;
     this.body.receiveShadow = true;
-    this.stripes = new Mesh();
-    this.stripes.receiveShadow = true;
     this.glow = new Mesh(glowGeo, glowMaterials[team === 1 ? 1 : 0]);
     this.glow.position.set(0.05, GROUND + 0.012, 0);
     this.glow.renderOrder = 2;
@@ -227,8 +212,7 @@ export class CarView {
     this.root.add(this.glow);
     this.glass = new Mesh(undefined, glassMaterial);
     this.glass.renderOrder = 3;
-    this.lights = new Mesh(undefined, lightMaterial);
-    this.root.add(this.body, this.stripes, this.glass, this.lights, this.rider.root, this.flames);
+    this.root.add(this.body, this.glass, this.rider.root, this.flames);
     this.dresser = new AvatarDresser(this.rider);
     for (const s of [-1, 1]) {
       const outer = new Mesh(flameGeo, flameOuter);
@@ -265,18 +249,14 @@ export class CarView {
     this.glow.material = glowMaterials[team === 1 ? 1 : 0]!;
   }
 
+  /** Detail level: 0 near, 1 far (coarser loft, plainer wheels - same livery). */
+  private lod = 0;
+
   private rebuild(): void {
     const b = buildCar(this.model);
     this.built = b;
-    this.body.geometry = b.body;
-    this.body.material = paintMaterial(b.decal);
-    this.stripes.visible = !!b.stripes;
-    if (b.stripes) {
-      this.stripes.geometry = b.stripes;
-      this.stripes.material = stripeMaterial(b.decal);
-    }
-    this.glass.geometry = b.glass;
-    this.lights.geometry = b.lights;
+    this.body.material = b.material;
+    this.applyLod();
     const spec = CAR_MODELS[this.model]!;
     const nz = spec.nozzles;
     for (const f of this.flames.children) {
@@ -285,6 +265,12 @@ export class CarView {
     }
     this.rider.root.scale.setScalar(spec.seat.scale);
     this.seatVersion = -1;
+  }
+
+  private applyLod(): void {
+    const l = this.built.lods[this.lod]!;
+    this.body.geometry = l.body;
+    this.glass.geometry = l.glass;
   }
 
   /** Every plate looks the same: nobody can tell a bot's car from a player's. */
@@ -333,7 +319,13 @@ export class CarView {
       this.flames.scale.set(this.boostVis * f * 1.2, 0.8 + this.boostVis * 0.4, 0.8 + this.boostVis * 0.4);
     }
     this.root.updateMatrixWorld();
-    const pool = wheels.pool(this.model);
+    // far cars swap to the coarse body and wheels (with a band so they do not flicker)
+    const want = this.lod === 0 ? (cameraDistance > 26 ? 1 : 0) : cameraDistance < 21 ? 0 : 1;
+    if (want !== this.lod) {
+      this.lod = want;
+      this.applyLod();
+    }
+    const pool = wheels.pool(this.model, this.lod);
     const drop = onGround ? 0 : -0.03;
     spinQ.setFromAxisAngle(AXIS_Z, -this.wheelSpin);
     for (let i = 0; i < 4; i += 1) {

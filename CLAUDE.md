@@ -62,14 +62,27 @@ Never commit or push unless asked.
   and the resulting 58.8 Hz made the input queues overflow (a one-tick correction every merge).
 - **Bandwidth:** snapshots are 66 B/car; 30 Hz up to 8 cars, 20 Hz above (`Match.step`). ~13 KB/s for a 3v3,
   ~24 KB/s per client with 16 cars. Schema patches (names, scores, phases) at 10 Hz carry no motion.
-- **Cars:** five bodies (`client/src/world/cars/CarModels.ts`: Viper GT, Breaker, Tempest, Hotshot, Frostbite) recreated
-  from the user's reference images as lofted sections + glass cabin + parts; all share ONE hitbox (Dominus-like,
-  127x84x34 uu). Cars ALWAYS keep their own reference colours - never repaint by team (user rule). Team identity:
-  the team-colour underglow ring under each car (`CarView`, on the ground only), team name plates, HUD/scoreboard
-  colours. Bodies have carved wheel wells (`carve` in the loft) and the visual steer angle is capped at 0.3 rad so
-  tyres stay inside them; glass has a polygon offset (no shimmer against the roof/body). Riders sit in a racing
-  position (legs forward) so feet stay inside every body. Choice: `PlayerState.body`, `MessageType.SetCar`,
-  remembered in localStorage.
+- **Cars:** five bodies recreated from the user's five reference images, one file each in
+  `client/src/world/cars/models/` (viper = green supercar, breaker = orange gridded Octane-style, tempest = teal/yellow
+  modern muscle, hotshot = red hot hatch with the white kit, frostbite = ice muscle car with the blower); all share ONE
+  hitbox (Dominus-like, 127x84x34 uu). The kit (`cars/loft.ts`): a body is a row of SECTIONS (`sec`: eight filleted
+  control points - bottom, rocker, widest, shoulder crease, top edge, a level point, top centre), monotone-cubic between
+  stations, creased normals (`creased` - three's helper welds at 1/100 unit, so it works in tenths of a mm). PAINT is
+  a livery BAKED per texel from a function of the 3D surface point (`paint(p, palette)`: position, normal, arc, cap
+  face, distance to the cabin base `p.cab`) into a 1024x512 atlas (512 on phones): albedo + ORM (R clearcoat, G
+  roughness, B metal, A glow - emission = colour x alpha x 6, patched into one MeshPhysicalMaterial per car). Parts
+  (`cars/parts.ts`: wings, flares, splitters, mirrors...) sample palette swatches in the same atlas: body + roof panel
+  + pillars + parts = ONE mesh/material; glass is a separate transparent loft (dark tint, rider visible); under the
+  glass the body is painted as interior. Wheels (`cars/wheels.ts`): tyre + rim instanced pools per model, rim design
+  per reference. TWO LODs (`BuiltCar.lods`, switched in `CarView` at 26/21 m): far = coarser loft and plain wheels,
+  same livery. ~10k tris body + 4 x 2.7k wheels near. Paint looks per arena: `ThemeLook.carEnv` (reflection) and
+  `carShade` (albedo; the day sun washes colours out) via `setCarEnvironment` (Game.applyLook, Lobby.enter).
+  Model with the DEV car lab: `/carlab.html#car=0..4&view=sheet|ref|ref2|side|front|rear|top&bg=studio|day|neon&rider=1&lod=1`
+  (never built; renders on a timer, so it works in a hidden pane). Cars ALWAYS keep their own reference colours -
+  never repaint by team (user rule). Team identity: the team-colour underglow ring (`CarView`, on the ground only),
+  team name plates, HUD/scoreboard colours. Wheel wells are carved into the loft and the visual steer angle is capped
+  at 0.3 rad so tyres stay inside them. Riders sit in a racing position; `seat.h` per model keeps them inside the
+  body (check with `rider=1`). Choice: `PlayerState.body`, `MessageType.SetCar`, remembered in localStorage.
 - **Shadows:** one real-time directional shadow map over the arena (`Game`: 1536 desktop / 1024 phones, PCF, bounds
   +-74 m; call `updateProjectionMatrix` after changing them). Cars, wheels, ball, goal frames and goal dressing
   cast; pitch, walls, goal boxes, pads receive. Riders do NOT cast (hidden in the car's shadow; they cost ~2 ms).
@@ -174,8 +187,7 @@ Never commit or push unless asked.
   ~50 MB of samples) and restarts at 130.4 s (silent tail), levels by `setMusicMode` - lobby, match and results all 0.75
   (user: don't duck it in matches) - times music_volume. Hits, jumps, horn, beeps stay synthesised. Audio starts on the first
   gesture (`unlock`). Cars are silenced in the lobby (`silenceCars`).
-- **Car stripes are their own mesh** (`BuiltCar.stripes`, drawn with a polygon offset in `CarView`); roof stripes are
-  lofted on the roof PANEL's sections. Never merge thin overlays into the body (Frostbite's stripes z-fought).
+- **Car stripes, decals, lights and grilles are PAINTED in the livery**, never thin overlay geometry (overlays z-fought).
 - **Client build under 12 MB.** Only `assets/` ships as files (unused ones pruned in `client/vite.config.ts`);
   arena, cars, ball, effects and almost all sound are code. Asset names must be URL-safe.
 

@@ -26,6 +26,7 @@ import { lookFromState } from '../bloxity/avatarLook.js';
 import { warmScene } from '../core/warmup.js';
 import { logger } from '../util/logger.js';
 import { LOOKS } from '../world/Themes.js';
+import { setCarEnvironment } from '../world/cars/CarModels.js';
 import { LobbyAvatar } from './LobbyAvatar.js';
 import { LobbyHud } from './LobbyHud.js';
 import { LobbyNet, type LobbyPlayerView, type LobbyStateView } from './LobbyNet.js';
@@ -153,6 +154,7 @@ export class Lobby {
   /** Into the lobby (boot, or back from a match): join, show, walk. */
   async enter(roomId = ''): Promise<void> {
     this.build();
+    setCarEnvironment(LOOKS.day.carEnv, LOOKS.day.carShade); // the plaza is a daylight scene (car materials are shared)
     this.active = true;
     this.frozen = false;
     this.hud.leaving(false);

@@ -19,6 +19,10 @@ export interface ThemeLook {
   /** Bloom strength (desktop) - the threshold stays 3.0, so only HDR emissives glow. */
   bloom: number;
   env: (renderer: WebGLRenderer) => Texture;
+  /** How much of the environment the car paint reflects (a bright sky greys out black trim). */
+  carEnv: number;
+  /** Car paint brightness (the day sun washes the cars' colours out without it). */
+  carShade: number;
 }
 
 export const LOOKS: Record<ArenaTheme, ThemeLook> = {
@@ -32,6 +36,8 @@ export const LOOKS: Record<ArenaTheme, ThemeLook> = {
     sun: [0xe4ecff, 1.85, -20, 70, 30],
     bloom: 0.65,
     env: neonEnvironment,
+    carEnv: 1,
+    carShade: 1,
   },
   // a bright summer afternoon graded like the reference: a hard warm sun and little fill light (deep
   // shadows, saturated colour), a deep blue sky, and only a thin haze on the far skyline
@@ -44,5 +50,7 @@ export const LOOKS: Record<ArenaTheme, ThemeLook> = {
     sun: [0xfff0d8, 3.3, 55, 95, -35],
     bloom: 0.3,
     env: dayEnvironment,
+    carEnv: 0.5,
+    carShade: 0.66,
   },
 };
