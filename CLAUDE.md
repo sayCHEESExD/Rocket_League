@@ -115,6 +115,10 @@ Never commit or push unless asked.
   emissives (colours > 1) glow; lit surfaces must stay below it.
 - **HUD** follows the user's reference screenshot: slim top-centre scoreboard with YOUR team on the left, top-right
   feed of team-coloured name boxes + icons, "NAME SCORED!" outline text, bottom-left BALL CAM, red boost dial.
+  End of match = RL's two screens (user reference, `Game.finish` + `Hud.showResults/finishPodium`): 3.4 s of a
+  trophy + "WINNER" + the team name in thin glowing outline letters over a low orbit of the MVP's car, then a cut to
+  the winners parked at centre field (MVP in the middle, cheering; losers hidden) with name banners above and title
+  cards below (STRIKER / PLAYMAKER / GUARDIAN... from the stats). Render-only poses: the sim stays frozen.
 - **Riders:** players are their Bloxity avatar seated in the car (`player/PlayerCharacter.ts` SEATED pose,
   `bloxity/AvatarDresser.ts`), bots wear catalogue looks (`bloxity/botLooks.ts`). The top-left corner stays free
   of ALL UI on every device (the portal draws there); the touch CARS / CHAT / SCORES / SOCIAL / LOBBY row is

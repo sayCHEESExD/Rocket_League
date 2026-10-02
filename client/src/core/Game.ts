@@ -20,6 +20,7 @@ import {
   type FeedMessage,
   type GoalMessage,
   type MatchEndMessage,
+  type MatchEndRow,
   type SetAvatarMessage,
   CAR_COUNT,
   type AvatarAppearance,
@@ -138,6 +139,20 @@ export class Game {
   private goalPulse: [number, number] = [0, 0];
   private hype = 0;
   private results: MatchEndMessage | null = null;
+  /**
+   * THE FINISH (Rocket League's end screens): `FINISH_TITLE` s of "WINNER <TEAM>" over a slow
+   * orbit of the MVP's car, then a cut to the winners parked side by side at centre field (MVP in
+   * the middle), cheering, with name banners and title cards (`Hud.finishPodium`). Visual only:
+   * the sim is frozen in Phase.Ended; the podium poses replace the cars' rendered poses.
+   */
+  private finish: {
+    t0: number;
+    cut: boolean;
+    team: number;
+    focus: number;
+    a0: number;
+    spots: { slot: number; x: number; yaw: number; row: MatchEndRow; mvp: boolean }[];
+  } | null = null;
   private boardOn = false;
   private fpsT = 0;
   private fpsN = 0;
@@ -896,6 +911,11 @@ export class Game {
     // cars
     this.wheels.begin();
     const camPos = this.rig.camera.position;
+    const pod = this.finish && !useReplay && performance.now() - this.finish.t0 >= FINISH_TITLE * 1000 ? this.finish : null;
+    if (pod && pod.team >= 0) {
+      this.cheerT = Math.max(this.cheerT, 1);
+      this.cheerTeam = pod.team;
+    }
     for (let i = 0; i < MAX_CARS; i += 1) {
       let active: boolean;
       let demolished: boolean;
@@ -936,6 +956,30 @@ export class Game {
         onGround = c.wheels >= 2;
         handbrake = c.handbrake;
       }
+      if (pod && active) {
+        const spot = pod.spots.find((s) => s.slot === i);
+        if (!spot) {
+          const hidden = this.cars[i];
+          if (hidden) {
+            hidden.view.root.visible = false;
+            hidden.shadow.visible = false;
+          }
+          continue;
+        }
+        p.px = spot.x;
+        p.py = 0;
+        p.pz = CAR.rideHeight;
+        p.qx = 0;
+        p.qy = 0;
+        p.qz = Math.sin(spot.yaw / 2);
+        p.qw = Math.cos(spot.yaw / 2);
+        demolished = false;
+        boosting = false;
+        supersonic = false;
+        speed = 0;
+        onGround = true;
+        handbrake = 0;
+      }
       if (!active) {
         if (this.cars[i]) this.dropCar(i);
         continue;
@@ -970,7 +1014,7 @@ export class Game {
         m.lookKey = 'default';
         view.setLook(DEFAULT_APPEARANCE, DEFAULT_PROPORTIONS);
       }
-      view.showName = i !== local || useReplay;
+      view.showName = (i !== local || useReplay) && !pod;
 
       // rider motion from accelerations (local frame)
       const vel = this.v.b.set(c.vel.x, c.vel.y, c.vel.z);
@@ -1293,6 +1337,30 @@ export class Game {
       this.rig.goal(dt, this.lastGoal.side, this.v.b.set(w.ball.pos.x, w.ball.pos.y, w.ball.pos.z));
       return;
     }
+    if (phase === Phase.Ended && this.finish) {
+      const f = this.finish;
+      if (this.rig.mode !== 'overview') this.rig.setMode('overview');
+      const el = (performance.now() - f.t0) / 1000;
+      if (el >= FINISH_TITLE) {
+        if (!f.cut) {
+          f.cut = true;
+          this.rig.cut();
+        }
+        const sway = Math.sin((el - FINISH_TITLE) * 0.35) * 45;
+        this.rig.shot(dt, this.v.b.set(sway, -this.podiumDistance(f.spots), 95), this.v.c.set(sway * 0.4, 0, 62), PODIUM_FOV);
+      } else {
+        // a slow, low orbit round the MVP's car where the whistle found it, inside the walls
+        const fc = f.focus >= 0 ? w.cars[f.focus] : undefined;
+        const fx = fc?.active ? fc.pos.x : w.ball.pos.x;
+        const fy = fc?.active ? fc.pos.y : w.ball.pos.y;
+        const fz = fc?.active ? fc.pos.z : 0;
+        const a = f.a0 + el * 0.22;
+        const cx = Math.max(-ARENA.halfX + 400, Math.min(ARENA.halfX - 400, fx + Math.cos(a) * 760));
+        const cy = Math.max(-ARENA.halfY + 400, Math.min(ARENA.halfY - 400, fy + Math.sin(a) * 760));
+        this.rig.shot(dt, this.v.b.set(cx, cy, fz + 280), this.v.c.set(fx, fy, fz + 70), 80);
+      }
+      return;
+    }
     if (phase === Phase.Ended || !c || !c.active || !this.revealed) {
       // overview: a slow orbit high over the pitch, watching the ball (also the intro's wide shot,
       // held while the match settles behind the MATCH FOUND card)
@@ -1378,14 +1446,75 @@ export class Game {
       if (!this.resultsShown) {
         this.resultsShown = true;
         this.hud.showResults(this.results, this.net.sessionId, me?.team ?? 0, left);
+        this.startFinish(this.results);
       }
       this.hud.resultsCountdown(left);
+      if (this.finish?.cut) this.podiumCards(this.finish);
     } else if (this.resultsShown) {
       this.resultsShown = false;
+      this.finish = null;
       this.hud.showResults(null, '', 0, 0);
     }
     if (this.boardOn) this.showBoard(true);
   }
 
   private resultsShown = false;
+
+  /** Who stands on the podium and where: the winners (a draw: the top three), MVP in the middle. */
+  private startFinish(m: MatchEndMessage): void {
+    const pool = m.winner >= 0 ? m.rows.filter((r) => r.team === m.winner) : m.rows.slice(0, 3);
+    const ranked = [...pool].sort((a, b) => Number(b.id === m.mvp) - Number(a.id === m.mvp) || b.score - a.score).slice(0, 4);
+    // podium places in rank order: centre, right, left, far right
+    const n = ranked.length;
+    const xs = n === 1 ? [0] : n === 2 ? [-PODIUM_GAP / 2, PODIUM_GAP / 2] : n === 3 ? [0, PODIUM_GAP, -PODIUM_GAP] : [-PODIUM_GAP / 2, PODIUM_GAP / 2, -PODIUM_GAP * 1.5, PODIUM_GAP * 1.5];
+    const spots = ranked
+      .map((row, k) => {
+        const x = xs[k]!;
+        // nose towards the camera, a little turned in
+        return { slot: this.bySlot.findIndex((p) => p?.id === row.id), x, yaw: Math.atan2(-520, -x * 0.55), row, mvp: row.id === m.mvp };
+      })
+      .filter((s) => s.slot >= 0)
+      .sort((a, b) => a.x - b.x);
+    const focus = spots.find((s) => s.mvp)?.slot ?? spots[0]?.slot ?? this.pred.localSlot;
+    const fc = focus >= 0 ? this.pred.pred.cars[focus] : undefined;
+    const cam = this.rig.camera.position;
+    const a0 = fc ? Math.atan2(-cam.z / S - fc.pos.y, cam.x / S - fc.pos.x) : 0;
+    this.finish = { t0: performance.now(), cut: false, team: m.winner, focus, a0, spots };
+    this.rig.cut(1.1); // ease from wherever the whistle left the camera into the orbit
+  }
+
+  /** Far enough back that the whole podium fits the frame at this aspect (the rig clamps the vertical fov). */
+  private podiumDistance(spots: { x: number }[]): number {
+    const span = (spots.length ? Math.max(...spots.map((s) => Math.abs(s.x))) * 2 : 0) + 300;
+    const aspect = this.rig.camera.aspect;
+    const v = Math.min(92, Math.max(55, (2 * Math.atan(Math.tan(((PODIUM_FOV / 2) * Math.PI) / 180) / aspect) * 180) / Math.PI));
+    const half = Math.atan(Math.tan(((v / 2) * Math.PI) / 180) * aspect);
+    return Math.max(460, span / 2 / Math.tan(half));
+  }
+
+  /** Screen positions for the banners (above each car) and the title cards (on the ground in front). */
+  private podiumCards(f: NonNullable<Game['finish']>): void {
+    const cam = this.rig.camera;
+    cam.updateMatrixWorld();
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    const at = (x: number, y: number, z: number): { x: number; y: number } => {
+      const v = this.v.d.set(x * S, z * S, -y * S).project(cam);
+      return { x: (v.x * 0.5 + 0.5) * w, y: (-v.y * 0.5 + 0.5) * h };
+    };
+    this.hud.finishPodium(
+      f.spots.map((s) => {
+        const top = at(s.x, 0, 128);
+        const bottom = at(s.x, -110, 0);
+        const r = s.row;
+        return { id: r.id, name: r.name, team: r.team, mvp: s.mvp, score: r.score, goals: r.goals, assists: r.assists, saves: r.saves, shots: r.shots, demos: r.demos, x: top.x, top: top.y, bottom: bottom.y };
+      }),
+    );
+  }
 }
+
+/** Seconds of the "WINNER" title before the cut to the podium. */
+const FINISH_TITLE = 3.4;
+/** Podium spacing (uu, car centre to car centre) and the camera's horizontal fov for it. */
+const PODIUM_GAP = 250;
+const PODIUM_FOV = 62;

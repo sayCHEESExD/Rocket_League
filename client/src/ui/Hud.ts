@@ -81,9 +81,43 @@ const CSS = `
 .panel tr.me td{outline:2px solid rgba(255,255,255,.6);outline-offset:-2px}
 .panel .tname{font-weight:900;font-size:13px;letter-spacing:.2em;padding:10px 8px 4px}
 .panel .mvp{color:#ffd65a;font-size:12px;font-weight:900;margin-left:6px}
-.res .win{font-size:64px;font-weight:900;font-style:italic;text-align:center;line-height:1;margin:6px 0 4px}
-.res .final{text-align:center;font-size:34px;font-weight:900;margin-bottom:12px}
-.res .next{text-align:center;opacity:.8;margin-top:12px;font-weight:700}
+.fin{position:absolute;inset:0;display:none;pointer-events:none;--tc:#ff8a1f;--tl:#ffc07a}
+.fin.on{display:block}
+.hud.fin-on .sb,.hud.fin-on .ballcam,.hud.fin-on .hint,.hud.fin-on .vs,.hud.fin-on .topbtns{display:none}
+.fin-shade{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 42%,rgba(0,0,0,.05) 25%,rgba(0,0,0,.5));transition:opacity .6s}
+.fin.pod .fin-shade{background:linear-gradient(180deg,rgba(4,6,14,.7),rgba(4,6,14,0) 15%)}
+.fin-flash{position:absolute;inset:0;background:#fff;opacity:0}
+.fin.pod .fin-flash{animation:finFlash .7s ease-out}
+@keyframes finFlash{0%{opacity:.85}100%{opacity:0}}
+.fin-title{position:absolute;left:50%;top:22%;transform:translateX(-50%);text-align:center;transform-origin:50% 0;
+  transition:top .7s cubic-bezier(.2,.8,.2,1),transform .7s cubic-bezier(.2,.8,.2,1);animation:finIn .9s cubic-bezier(.2,.8,.2,1)}
+@keyframes finIn{0%{opacity:0;transform:translateX(-50%) scale(1.25);filter:blur(6px)}100%{opacity:1;transform:translateX(-50%) scale(1);filter:none}}
+.fin.pod .fin-title{top:calc(env(safe-area-inset-top,0px) + 4px);transform:translateX(-50%) scale(.34)}
+.fin.pod .fin-trophy{display:none}
+.fin-trophy{width:clamp(56px,9vw,104px);height:auto;display:block;margin:0 auto -4px;opacity:.88;filter:drop-shadow(0 0 14px var(--tc))}
+.fin-trophy text{font-family:"Titillium Web",sans-serif;font-weight:700;font-size:15px;letter-spacing:.06em;fill:#fff}
+.fin-w{font-family:"Titillium Web",sans-serif;font-weight:400;font-size:clamp(20px,3vw,38px);letter-spacing:.12em;color:var(--tl);text-shadow:0 0 12px var(--tc)}
+.fin-t{font-family:"Orbitron",sans-serif;font-weight:400;font-size:clamp(56px,11vw,150px);line-height:1;letter-spacing:.06em;color:rgba(255,255,255,.04);
+  -webkit-text-stroke:2px var(--tl);filter:drop-shadow(0 0 10px var(--tc)) drop-shadow(0 0 26px var(--tc))}
+.fin-tag{position:absolute;transform:translate(-50%,-100%);display:flex;flex-direction:column;align-items:center;gap:4px;opacity:0;animation:finUp .5s .35s ease-out forwards}
+.fin-tag .nm{font-family:"Titillium Web",sans-serif;font-weight:900;font-size:clamp(12px,1.6vw,20px);letter-spacing:.04em;color:#fff;padding:3px 16px;border-radius:999px;
+  background:linear-gradient(180deg,var(--c1),var(--c2));box-shadow:0 0 0 2px rgba(255,255,255,.25),0 4px 14px rgba(0,0,0,.5);white-space:nowrap;max-width:24vw;overflow:hidden;text-overflow:ellipsis;text-transform:uppercase}
+.fin-tag .mvp{font-family:"Orbitron",sans-serif;font-weight:700;font-size:clamp(11px,1.3vw,16px);color:#ffd65a;letter-spacing:.14em;padding:6px 10px 4px;border:2px solid #ffd65a;
+  border-radius:50% 50% 46% 46%/60% 60% 40% 40%;text-shadow:0 0 8px rgba(255,200,60,.8);box-shadow:0 0 14px rgba(255,200,60,.45)}
+.fin-card{position:absolute;transform:translateX(-50%);width:min(230px,23vw);font-family:"Titillium Web",sans-serif;text-align:center;opacity:0;animation:finUp .5s .55s ease-out forwards}
+.fin-card .row{display:flex;align-items:center;gap:8px;padding:5px 8px;background:linear-gradient(90deg,rgba(8,12,26,.85),rgba(20,26,48,.7));border-left:4px solid var(--c1);border-radius:3px}
+.fin-card .em{flex:none;width:clamp(22px,2.6vw,34px);height:clamp(22px,2.6vw,34px);display:grid;place-items:center;border-radius:4px;font-weight:900;font-size:clamp(12px,1.4vw,18px);color:#fff;
+  background:linear-gradient(135deg,var(--c1),var(--c2))}
+.fin-card .who{min-width:0;flex:1;text-align:left;font-weight:700;font-size:clamp(11px,1.25vw,15px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fin-card .who small{display:block;font-size:.72em;opacity:.65;letter-spacing:.08em}
+.fin-card .ti{margin-top:6px;font-weight:900;font-size:clamp(10px,1.1vw,14px);letter-spacing:.14em;color:#fff;text-shadow:0 1px 3px #000}
+.fin-card .su{font-weight:600;font-size:clamp(9px,.95vw,12px);color:rgba(255,255,255,.75);text-shadow:0 1px 3px #000}
+@keyframes finUp{0%{opacity:0;margin-top:12px}100%{opacity:1;margin-top:0}}
+.fin-foot{position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);transform:translateX(-50%);display:flex;align-items:center;gap:16px;
+  font-family:"Titillium Web",sans-serif;font-weight:700;font-size:15px;letter-spacing:.06em;white-space:nowrap;background:rgba(8,12,26,.6);padding:5px 16px;border-radius:999px}
+.fin-foot .sc{font-family:"Orbitron",sans-serif;font-size:18px}
+.fin-foot .nx{font-family:"Orbitron",sans-serif}
+.touch .fin-foot{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 8px);right:calc(env(safe-area-inset-right,0px) + 8px);left:auto;transform:none;font-size:12px}
 .help .grid{display:grid;grid-template-columns:auto 1fr;gap:6px 18px;font-size:15px}
 .help .k{font-weight:900;color:#9fd3ff;text-align:right}
 .chatbar{position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 50px);transform:translateX(-50%);display:flex;gap:6px;flex-wrap:wrap;justify-content:center;
@@ -115,6 +149,37 @@ const fmtClock = (s: number, overtime: boolean): string => {
   const m = Math.floor(t / 60);
   const r = t % 60;
   return `${overtime ? '+' : ''}${m}:${r < 10 ? '0' : ''}${r}`;
+};
+
+/** One car on the end-of-match podium: the player's numbers and where the car is on screen (px). */
+export interface PodiumCard {
+  id: string;
+  name: string;
+  team: number;
+  mvp: boolean;
+  score: number;
+  goals: number;
+  assists: number;
+  saves: number;
+  shots: number;
+  demos: number;
+  x: number;
+  top: number;
+  bottom: number;
+}
+
+/** Up to two Rocket League-style titles for a player's match ("STRIKER / 2 Goals"). */
+const podiumTitles = (r: PodiumCard): [string, string][] => {
+  const n = (v: number, s: string): string => `${v} ${s}${v === 1 ? '' : 's'}`;
+  const t: [string, string][] = [];
+  if (r.goals >= 3) t.push(['HAT TRICK', n(r.goals, 'Goal')]);
+  else if (r.goals) t.push(['STRIKER', n(r.goals, 'Goal')]);
+  if (r.assists) t.push(['PLAYMAKER', n(r.assists, 'Assist')]);
+  if (r.saves) t.push([r.saves >= 3 ? 'SAVIOR' : 'GUARDIAN', n(r.saves, 'Save')]);
+  if (r.demos) t.push(['EXECUTIONER', n(r.demos, 'Demolition')]);
+  if (r.shots >= 2) t.push(['SHARPSHOOTER', `${n(r.shots, 'Shot')} on Goal`]);
+  if (!t.length) t.push(['TEAM PLAYER', '']);
+  return t.slice(0, 2);
 };
 
 const esc = (s: string): string => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
@@ -179,7 +244,7 @@ export class Hud {
       <div class="hint">W/S drive · A/D steer · SPACE jump · SHIFT boost · C powerslide · F ball cam · H help</div>
       <div class="status"></div>
       <div class="panel board"></div>
-      <div class="panel res"></div>
+      <div class="fin"></div>
       <div class="panel help"><h2>CONTROLS</h2><div class="grid">
         <div class="k">W / S</div><div>Drive / reverse · in the air: pitch (nose down / up)</div>
         <div class="k">A / D</div><div>Steer · in the air: yaw</div>
@@ -240,7 +305,7 @@ export class Hud {
     this.status = q('.status');
     this.sup = q('.sup');
     this.board = q('.board');
-    this.results = q('.res');
+    this.results = q('.fin');
     this.help = q('.help');
     this.ballcam = q('.ballcam');
     this.stats = q('.stats');
@@ -442,17 +507,74 @@ export class Hud {
     if (on) this.board.innerHTML = `<h2>SCOREBOARD</h2>${this.table(players, me, '')}`;
   }
 
-  showResults(m: MatchEndMessage | null, me: string, myTeam: number, seconds: number): void {
-    this.results.classList.toggle('on', !!m);
-    if (!m) return;
-    const won = m.winner === myTeam;
-    const title = m.winner < 0 ? 'DRAW' : won ? 'VICTORY!' : 'DEFEAT';
-    const color = m.winner < 0 ? '#ffffff' : TEAMS[m.winner]!.light;
-    const players: NetPlayer[] = m.rows.map((r) => ({ ...r, username: '', avatarUrl: '', car: 0, body: 0, avatar: {}, ping: 0, chat: -1, chatTick: 0, emote: '', emoteTick: 0 }));
-    this.results.innerHTML = `<div class="win" style="color:${color}">${title}</div>
-      <div class="final"><span style="color:${TEAMS[0].light}">${m.blue}</span> - <span style="color:${TEAMS[1].light}">${m.orange}</span></div>
-      ${this.table(players, me, m.mvp)}<div class="next">${this.resultsLabel} <span class="nx">${Math.ceil(seconds)}</span></div>`;
+  /**
+   * THE FINISH (Rocket League's end screens, user reference): first "WINNER" over the
+   * team name in thin glowing outline letters under a trophy, then (`finishPodium`) the
+   * title shrinks to the top and the winners' cars get a name banner above and a card
+   * with their titles below. TAB still opens the full scoreboard.
+   */
+  showResults(m: MatchEndMessage | null, _me: string, myTeam: number, seconds: number): void {
+    this.root.classList.toggle('fin-on', !!m);
+    this.podiumKey = '';
+    if (!m) {
+      this.results.className = 'fin';
+      this.results.innerHTML = '';
+      return;
+    }
+    const team = m.winner >= 0 ? TEAMS[m.winner]! : null;
+    this.results.className = 'fin on';
+    this.results.style.setProperty('--tc', team?.color ?? '#9fb6ff');
+    this.results.style.setProperty('--tl', team?.light ?? '#e6ecff');
+    const label = !team ? 'DRAW' : m.winner === myTeam ? 'VICTORY' : 'DEFEAT';
+    this.results.innerHTML = `<div class="fin-shade"></div><div class="fin-flash"></div>
+      <div class="fin-title">
+        <svg class="fin-trophy" viewBox="0 0 100 124"><path fill="var(--tc)" d="M22 8h56v10h14c0 22-10 34-24 38-4 9-9 14-12 16v14h12l4 16H28l4-16h12V72c-3-2-8-7-12-16C18 52 8 40 8 18h14zm0 18H17c1 12 6 19 9 21-2-6-4-13-4-21zm56 0c0 8-2 15-4 21 3-2 8-9 9-21z"/>
+          <path fill="rgba(10,10,14,.75)" d="m50 18 6 13 14 1-11 9 4 14-13-8-13 8 4-14-11-9 14-1z"/><text x="50" y="121" text-anchor="middle">${label}</text></svg>
+        <div class="fin-w">${team ? 'WINNER' : 'MATCH OVER'}</div><div class="fin-t">${team ? team.name : 'DRAW'}</div>
+      </div>
+      <div class="fin-pod"></div>
+      <div class="fin-foot"><span class="sc"><span style="color:${TEAMS[0].light}">${m.blue}</span> - <span style="color:${TEAMS[1].light}">${m.orange}</span></span>
+        <span>${this.resultsLabel} <b class="nx">${Math.ceil(seconds)}</b></span></div>`;
     this.resultsNext = seconds;
+  }
+
+  private podiumKey = '';
+
+  /** The podium stage: banners and cards at the screen positions of the winners' cars (called every frame). */
+  finishPodium(cards: PodiumCard[]): void {
+    const pod = this.results.querySelector<HTMLElement>('.fin-pod');
+    if (!pod) return;
+    const key = cards.map((c) => c.id).join('|');
+    if (key !== this.podiumKey) {
+      this.podiumKey = key;
+      this.results.classList.add('pod');
+      pod.innerHTML = cards
+        .map((c) => {
+          const t = TEAMS[c.team]!;
+          const vars = `--c1:${t.color};--c2:${t.dark}`;
+          const titles = podiumTitles(c)
+            .map(([a, b]) => `<div class="ti">${a}</div><div class="su">${b}</div>`)
+            .join('');
+          return `<div class="fin-tag" style="${vars}">${c.mvp ? '<div class="mvp">MVP</div>' : ''}<div class="nm">${esc(c.name || 'Player')}</div></div>
+            <div class="fin-card" style="${vars}"><div class="row"><div class="em">${esc((c.name || 'P').charAt(0).toUpperCase())}</div>
+            <div class="who">${esc(c.name || 'Player')}<small>${c.score} POINTS</small></div></div>${titles}</div>`;
+        })
+        .join('');
+    }
+    const tags = pod.querySelectorAll<HTMLElement>('.fin-tag');
+    const boxes = pod.querySelectorAll<HTMLElement>('.fin-card');
+    cards.forEach((c, i) => {
+      const tag = tags[i];
+      const box = boxes[i];
+      if (tag) {
+        tag.style.left = `${c.x}px`;
+        tag.style.top = `${c.top}px`;
+      }
+      if (box) {
+        box.style.left = `${c.x}px`;
+        box.style.top = `${c.bottom}px`;
+      }
+    });
   }
 
   resultsCountdown(seconds: number): void {

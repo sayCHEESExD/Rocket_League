@@ -88,6 +88,17 @@ export class CameraRig {
     this.goalT = 0;
   }
 
+  /** Restart the current shot: a hard cut (0), or a blend from where the camera is now over `seconds`. */
+  cut(seconds = 0): void {
+    this.fromPos.copy(this.camera.position);
+    this.fromQ.copy(this.camera.quaternion);
+    this.blend = seconds > 0 ? 0 : 1;
+    this.blendTime = Math.max(0.05, seconds);
+    this.snapFov = seconds <= 0;
+  }
+
+  private snapFov = false;
+
   kick(amount: number): void {
     this.shake = Math.min(1, this.shake + amount);
   }
@@ -199,7 +210,11 @@ export class CameraRig {
 
   private apply(dt: number, fovDeg: number): void {
     const cam = this.camera;
-    if (Math.abs(cam.fov - fovDeg) > 0.01) {
+    if (this.snapFov) {
+      this.snapFov = false;
+      cam.fov = fovDeg;
+      cam.updateProjectionMatrix();
+    } else if (Math.abs(cam.fov - fovDeg) > 0.01) {
       cam.fov += (fovDeg - cam.fov) * Math.min(1, dt * 6);
       cam.updateProjectionMatrix();
     }
