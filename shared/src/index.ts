@@ -8,6 +8,7 @@ export * from './config/accounts.js';
 export * from './config/match.js';
 export * from './config/emotes.js';
 export * from './config/modes.js';
+export * from './config/names.js';
 export * from './types/avatar.js';
 export * from './types/identity.js';
 export * from './types/messages.js';

@@ -287,8 +287,9 @@ export class CarView {
     this.seatVersion = -1;
   }
 
-  setName(name: string, isBot: boolean): void {
-    this.tag.set(name, TEAMS[this.team]?.color ?? null, isBot ? 'BOT' : '');
+  /** Every plate looks the same: nobody can tell a bot's car from a player's. */
+  setName(name: string): void {
+    this.tag.set(name, TEAMS[this.team]?.color ?? null, '');
   }
 
   setLook(appearance: AvatarAppearance, proportions: AvatarProportions): void {

@@ -1,6 +1,7 @@
 import { Client, Room, matchMaker } from '@colyseus/core';
 import {
   ARENAS,
+  playerLikeName,
   CAR_COUNT,
   EMOTE,
   LOBBY,
@@ -66,6 +67,10 @@ export class LobbyRoom extends Room<LobbyState> {
   private launching = new Set<string>();
   private arenaTurn = Math.floor(Math.random() * ARENAS.length);
   private liveKey = '';
+  /** The match rooms as last read (for joining matches in progress). */
+  private liveRooms: Awaited<ReturnType<typeof matchMaker.query>> = [];
+  /** Seats this lobby reserved in a live room that may not show in its client count yet (room -> [count, until]). */
+  private readonly pending = new Map<string, [number, number]>();
 
   override onCreate(): void {
     this.state = new LobbyState();
@@ -209,6 +214,15 @@ export class LobbyRoom extends Room<LobbyState> {
         if (p.queue === mode.id && !p.matched && !this.launching.has(id)) queued.push(id);
       });
       queued.sort((a, b) => this.seats.get(a)!.queuedAt - this.seats.get(b)!.queuedAt);
+      // first, empty seats in a match of this playlist already being played
+      for (const room of this.joinable(mode.id)) {
+        if (queued.length === 0) break;
+        const free = room.maxClients - room.clients - this.pendingIn(room.roomId, now);
+        if (free <= 0) continue;
+        const take = queued.splice(0, free);
+        this.pending.set(room.roomId, [this.pendingIn(room.roomId, now) + take.length, now + 30_000]);
+        void this.joinLive(mode, room, take);
+      }
       info.count = queued.length;
       if (queued.length === 0) {
         info.startsIn = -1;
@@ -226,12 +240,20 @@ export class LobbyRoom extends Room<LobbyState> {
     const arena = this.arenaTurn;
     this.arenaTurn = (this.arenaTurn + 1) % ARENAS.length;
     try {
-      const room = await matchMaker.createRoom(ROOM_NAME, { mode: mode.id, arena, expect: ids.length });
+      // the names first: a room is created before the teams are known, so they are worked out up front
+      const team0 = ids.filter((_, i) => i % 2 === 0).length;
+      const team1 = ids.length - team0;
+      const botNames: [string[], string[]] = [
+        Array.from({ length: mode.teamSize - team0 }, () => playerLikeName(Math.random)),
+        Array.from({ length: mode.teamSize - team1 }, () => playerLikeName(Math.random)),
+      ];
+      const room = await matchMaker.createRoom(ROOM_NAME, { mode: mode.id, arena, expect: ids.length, botNames: [[...botNames[0]], [...botNames[1]]] });
       // alternate teams in queue order: the first two are on opposite sides
       const team = new Map(ids.map((id, i) => [id, i % 2]));
       const names = (t: number): string[] => ids.filter((id) => team.get(id) === t).map((id) => this.state.players.get(id)?.name ?? 'Player');
-      const blue = names(0);
-      const orange = names(1);
+      // the full roster: the players, then the handles the bots will play under
+      const blue = [...names(0), ...botNames[0]];
+      const orange = [...names(1), ...botNames[1]];
       for (const id of ids) {
         const row = this.state.players.get(id);
         const seat = this.seats.get(id);
@@ -256,11 +278,65 @@ export class LobbyRoom extends Room<LobbyState> {
     }
   }
 
+  private pendingIn(roomId: string, now: number): number {
+    const p = this.pending.get(roomId);
+    return p && p[1] > now ? p[0] : 0;
+  }
+
+  /**
+   * Live matches of a playlist with a seat for a human: not over, not in its last
+   * half-minute, not locked (Colyseus locks a room whose seats are all taken or reserved).
+   */
+  private joinable(mode: string): Awaited<ReturnType<typeof matchMaker.query>> {
+    return this.liveRooms.filter((r) => {
+      const m = r.metadata as { game?: string; mode?: string; phase?: number; clock?: number; overtime?: boolean } | undefined;
+      if (!m || m.game !== 'rocket-league' || m.mode !== mode || r.locked || r.clients <= 0) return false;
+      if (m.phase === 5) return false; // results
+      return m.overtime || (m.clock ?? 0) > 30;
+    });
+  }
+
+  /** Seat queued players in a match in progress (they take over bots on arrival). */
+  private async joinLive(mode: (typeof MODES)[number], room: Awaited<ReturnType<typeof matchMaker.query>>[number], ids: string[]): Promise<void> {
+    for (const id of ids) this.launching.add(id);
+    const m = room.metadata as { arena?: number; blueNames?: string; orangeNames?: string };
+    const split = (s: string | undefined): string[] => (s ? s.split(', ').filter(Boolean) : []);
+    try {
+      for (const id of ids) {
+        const row = this.state.players.get(id);
+        const seat = this.seats.get(id);
+        const client = this.clients.find((c) => c.sessionId === id);
+        if (!row || !seat || !client) continue;
+        try {
+          const reservation = await matchMaker.reserveSeatFor(room, { token: seat.token, car: row.body, identity: seat.identity, avatar: seat.avatar });
+          row.matched = true;
+          row.queue = '';
+          client.send(MessageType.MatchFound, {
+            reservation,
+            mode: mode.id,
+            arena: Number(m.arena) || 0,
+            team: -1,
+            blue: split(m.blueNames),
+            orange: split(m.orangeNames),
+            inProgress: true,
+          } satisfies MatchFoundMessage);
+        } catch (error) {
+          // full after all (or gone): they stay queued and get the next match
+          logger.info(SCOPE, `no seat in ${room.roomId}: ${String(error)}`);
+        }
+      }
+      logger.info(SCOPE, `${ids.length} player(s) sent into ${mode.id} match ${room.roomId} in progress`);
+    } finally {
+      for (const id of ids) this.launching.delete(id);
+    }
+  }
+
   // ------------------------------------------------------------------ the board
 
   private async refreshLive(): Promise<void> {
     try {
       const rooms = await matchMaker.query({ name: ROOM_NAME });
+      this.liveRooms = rooms;
       const rows = rooms
         .filter((r) => (r.metadata as { game?: string } | undefined)?.game === 'rocket-league' && r.clients > 0)
         .map((r) => ({ id: r.roomId, m: r.metadata as Record<string, unknown> }))

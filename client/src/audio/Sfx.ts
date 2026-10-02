@@ -5,7 +5,7 @@ const NITRO_LOOP: [number, number] = [0.9, 2.25];
 /** The music fades out from ~112 s and is silent after ~130 s: start over before the silence. */
 const MUSIC_END = 130.4;
 /** How loud the music sits where the player is (times the portal's music_volume). */
-const MUSIC_LEVEL = { lobby: 0.75, match: 0.3, results: 0.65, off: 0 } as const;
+const MUSIC_LEVEL = { lobby: 0.75, match: 0.75, results: 0.75, off: 0 } as const;
 export type MusicMode = keyof typeof MUSIC_LEVEL;
 /** Other cars' engines heard at once (the nearest). */
 const VOICES = 3;

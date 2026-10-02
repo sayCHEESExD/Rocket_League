@@ -59,9 +59,12 @@ export interface MatchFoundMessage {
   reservation: unknown;
   mode: string;
   arena: number;
+  /** The team the lobby put you on (-1: decided on arrival - joining a match in progress). */
   team: number;
   blue: string[];
   orange: string[];
+  /** A match already being played (you take an empty seat in it). */
+  inProgress?: boolean;
 }
 
 /** Client -> server (lobby): where I am. [x, y, z, yaw, anim] in metres / radians; anim 0 idle 1 walk 2 air. */

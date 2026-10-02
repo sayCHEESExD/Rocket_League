@@ -635,7 +635,7 @@ export class Lobby {
       s.fillText(q && q.count ? `${q.count} / ${q.needed} QUEUED` : 'STEP IN TO PLAY', 512, 100);
       s.fillStyle = st.mode.color;
       s.font = '800 46px "Titillium Web", sans-serif';
-      s.fillText(q && q.count && q.startsIn >= 0 ? `KICKOFF IN ${q.startsIn}` : `${st.mode.teamSize} V ${st.mode.teamSize} · BOTS FILL EMPTY SEATS`, 512, 196);
+      s.fillText(q && q.count && q.startsIn >= 0 ? `KICKOFF IN ${q.startsIn}` : `${st.mode.teamSize} V ${st.mode.teamSize} · QUICK MATCH`, 512, 196);
       st.status.tex.needsUpdate = true;
     }
   }

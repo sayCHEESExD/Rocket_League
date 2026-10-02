@@ -228,7 +228,7 @@ export class Game {
       if (what === 'team') this.net.send(MessageType.SwitchTeam, 1);
       if (what === 'ballcam') this.toggleBallCam();
       if (what === 'garage') this.openGarage();
-      if (what === 'social') this.social.show(!this.social.open);
+      if (what === 'social') this.toggleSocial();
       if (what === 'lobby') this.onExit?.();
     };
     // on the page itself, not in the match HUD: the lobby opens it too
@@ -256,6 +256,7 @@ export class Game {
       onFeed: (m) => this.onFeed(m),
       onMatchEnd: (m) => {
         this.results = m;
+        this.releaseCursor(); // the results want the mouse
         this.bloxity.gameplayEnd();
         const mine = this.myPlayer();
         this.sfx.fanfare(!!mine && m.winner === mine.team);
@@ -298,6 +299,7 @@ export class Game {
     window.addEventListener('resize', () => this.resize());
     this.resize();
     const unlock = (): void => this.sfx.unlock();
+    this.renderer.domElement.addEventListener('pointerdown', () => this.lockCursor());
     window.addEventListener('pointerdown', unlock);
     window.addEventListener('keydown', unlock);
   }
@@ -308,6 +310,7 @@ export class Game {
   private garage!: Garage;
 
   openGarage(): void {
+    this.releaseCursor();
     const me = this.inMatch ? this.myPlayer() : null;
     this.garage.setLook(me ? lookFromState(me.avatar as never) : this.myLook);
     this.garage.openGarage(me?.body ?? savedCar());
@@ -327,6 +330,7 @@ export class Game {
 
   toggleSocial(): void {
     this.social.show(!this.social.open);
+    if (this.social.open) this.releaseCursor();
   }
 
   /** The portal's idea of where we are (lobby or match room id). */
@@ -418,8 +422,28 @@ export class Game {
     this.bloxity.gameplayStart();
   }
 
+  /**
+   * In a match the cursor is LOCKED to the game (clicks still jump / boost). It is let go
+   * whenever something wants the mouse - the garage, the social panel, the results - and when
+   * leaving; Escape releases it too (the browser's own rule), and the next click takes it back.
+   */
+  private lockCursor(): void {
+    if (!this.inMatch || this.garage.open || this.social.open || this.results || document.pointerLockElement) return;
+    try {
+      const p = this.renderer.domElement.requestPointerLock() as unknown as Promise<void> | undefined;
+      void p?.catch?.(() => undefined); // refused (an iframe without permission, too soon after Escape): fine
+    } catch {
+      /* not supported */
+    }
+  }
+
+  private releaseCursor(): void {
+    if (document.pointerLockElement) document.exitPointerLock();
+  }
+
   setActive(on: boolean): void {
     this.inMatch = on;
+    if (!on) this.releaseCursor();
     if (!on) this.sfx.silenceCars();
     this.sfx.setMusicMode(on ? 'match' : 'lobby');
     this.controls.takeActions(); // keys pressed in the lobby are not car commands
@@ -792,6 +816,7 @@ export class Game {
     }
     else if (a === 'menu') this.bloxity.showPortalMenu(false);
     else if (a === 'switch-team') this.net.send(MessageType.SwitchTeam, 1);
+    else if (a === 'lobby') this.onExit?.();
     else if (a.startsWith('chat:')) this.quickChat(Number(a.slice(5)));
   }
 
@@ -925,11 +950,11 @@ export class Game {
 
       // who
       const player = this.bySlot[i];
-      const name = player?.name || (player?.bot ? 'Bot' : 'Player');
-      const nameKey = `${name}|${team}|${player?.bot ? 1 : 0}`;
+      const name = player?.name || 'Player';
+      const nameKey = `${name}|${team}`;
       if (nameKey !== m.nameKey) {
         m.nameKey = nameKey;
-        view.setName(name, !!player?.bot);
+        view.setName(name);
       }
       if (player) {
         const look = player.bot ? { appearance: botAppearance(i, player.id), proportions: DEFAULT_PROPORTIONS } : lookFromState(player.avatar as never);
@@ -1319,7 +1344,9 @@ export class Game {
     }
     const local = this.pred.localSlot;
     const c = local >= 0 ? w.cars[local] : undefined;
-    this.hud.boost(c?.boost ?? 0, !!c && c.active && phase !== Phase.Ended && !this.replay.active, c ? Math.hypot(c.vel.x, c.vel.y, c.vel.z) : 0);
+    const dial = !!c && c.active && phase !== Phase.Ended && !this.replay.active;
+    this.hud.boost(c?.boost ?? 0, dial, c ? Math.hypot(c.vel.x, c.vel.y, c.vel.z) : 0);
+    this.hud.keys(dial, this.input.jump, this.input.boost);
     // countdown
     if (phase === Phase.Countdown && m.phaseEnd === 0) {
       // a playlist waiting for its players: no numbers yet

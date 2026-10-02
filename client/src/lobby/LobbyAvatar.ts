@@ -1,5 +1,5 @@
 import { QUICK_CHATS, type AvatarAppearance, type AvatarProportions } from '@rlb/shared';
-import { CanvasTexture, Group, LinearFilter, SRGBColorSpace, Sprite, SpriteMaterial } from 'three';
+import { Box3, CanvasTexture, Group, LinearFilter, SRGBColorSpace, Sprite, SpriteMaterial } from 'three';
 import { AvatarDresser } from '../bloxity/AvatarDresser.js';
 import { NameTag } from '../player/NameTag.js';
 import { PlayerCharacter, WALKER_SCALE, type WalkMotion } from '../player/PlayerCharacter.js';
@@ -74,6 +74,10 @@ export class LobbyAvatar {
   private speed = 0;
   private bubbleUntil = 0;
   private placed = false;
+  /** Re-measure the plate height when the body or worn items change (and now and then: items load late). */
+  private measuredVersion = -1;
+  private measureT = 0;
+  private readonly box = new Box3();
 
   constructor() {
     this.character.root.scale.setScalar(WALKER_SCALE);
@@ -134,6 +138,25 @@ export class LobbyAvatar {
   animate(dt: number, m: WalkMotion, now: number): void {
     this.character.walk(dt, m);
     this.bubble.sprite.visible = now < this.bubbleUntil;
+    this.measureT -= dt;
+    if (this.character.bodyVersion !== this.measuredVersion || this.measureT <= 0) {
+      this.measuredVersion = this.character.bodyVersion;
+      this.measureT = 1.5;
+      this.placeTag();
+    }
+  }
+
+  /**
+   * Put the name plate (and the chat bubble) just above the TOP of the avatar as worn - big
+   * heads, hats and headphones included - instead of at a fixed height that a tall head swallows.
+   */
+  private placeTag(): void {
+    this.root.updateMatrixWorld(true);
+    this.box.setFromObject(this.character.root, true);
+    if (this.box.isEmpty()) return;
+    const top = Math.max(1.6, Math.min(4, this.box.max.y - this.root.position.y));
+    this.tag.sprite.position.y = top + 0.32;
+    this.bubble.sprite.position.y = top + 0.9;
   }
 
   dispose(): void {

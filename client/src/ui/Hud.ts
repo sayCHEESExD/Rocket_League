@@ -18,6 +18,12 @@ const CSS = `
 .sb .clock.low{color:#ff8f8f}
 .boost{position:absolute;right:calc(env(safe-area-inset-right,0px) + 14px);bottom:calc(env(safe-area-inset-bottom,0px) + 10px);width:184px;height:184px}
 .boost svg{position:absolute;inset:0;overflow:visible}
+.keys{position:absolute;right:calc(env(safe-area-inset-right,0px) + 200px);bottom:calc(env(safe-area-inset-bottom,0px) + 30px);display:flex;flex-direction:column;gap:7px;font-family:"Titillium Web",sans-serif;pointer-events:none}
+.keys .kc{display:flex;align-items:center;gap:8px;justify-content:flex-end;font-weight:700;font-size:12px;letter-spacing:.12em;color:rgba(255,255,255,.8)}
+.keys .kc b{min-width:58px;padding:3px 9px;text-align:center;font-weight:900;font-size:12px;letter-spacing:.08em;color:#fff;border-radius:5px;
+  background:linear-gradient(180deg,rgba(60,63,72,.88),rgba(18,19,24,.88));border:1px solid rgba(255,255,255,.3);box-shadow:0 2px 0 rgba(0,0,0,.55);transition:background .08s,transform .08s}
+.keys .kc.on b{background:linear-gradient(180deg,#ffb04a,#f7941d);border-color:#ffd08a;transform:translateY(2px);box-shadow:0 0 10px rgba(247,148,29,.7)}
+.touch .keys{display:none}
 .boost .num{position:absolute;left:0;right:0;top:66px;text-align:center;font-family:"Orbitron",sans-serif;font-weight:700;font-size:44px;line-height:1;letter-spacing:.02em;
   color:rgba(255,255,255,.1);-webkit-text-stroke:2px #fff;text-shadow:0 0 6px rgba(255,255,255,.35)}
 .boost.full .num{text-shadow:0 0 10px rgba(255,255,255,.6)}
@@ -75,7 +81,6 @@ const CSS = `
 .panel tr.me td{outline:2px solid rgba(255,255,255,.6);outline-offset:-2px}
 .panel .tname{font-weight:900;font-size:13px;letter-spacing:.2em;padding:10px 8px 4px}
 .panel .mvp{color:#ffd65a;font-size:12px;font-weight:900;margin-left:6px}
-.panel .bot{opacity:.6;font-size:11px;margin-left:6px}
 .res .win{font-size:64px;font-weight:900;font-style:italic;text-align:center;line-height:1;margin:6px 0 4px}
 .res .final{text-align:center;font-size:34px;font-weight:900;margin-bottom:12px}
 .res .next{text-align:center;opacity:.8;margin-top:12px;font-weight:700}
@@ -168,8 +173,9 @@ export class Hud {
           <circle cx="100" cy="100" r="64" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="1.2"/>
           <g class="ticks"></g><g class="speed"></g>
         </svg><div class="num">33</div><div class="lbl">BOOST</div></div>
+      <div class="keys"><div class="kc" data-k="jump">JUMP<b>SPACE</b></div><div class="kc" data-k="boost">BOOST<b>SHIFT</b></div></div>
       <div class="ballcam"><div class="t"><i></i><span>BALL CAM</span></div><div class="p">PRESS (F) TO TOGGLE</div></div>
-      <div class="topbtns"><button data-b="social" class="acct">LOG IN</button><button data-b="garage">GARAGE (G)</button><button data-b="scores">SCORES (TAB)</button><button data-b="help">CONTROLS (H)</button><button data-b="team">SWITCH TEAM (T)</button><button data-b="lobby">LOBBY</button></div>
+      <div class="topbtns"><button data-b="social" class="acct">LOG IN</button><button data-b="garage">GARAGE (G)</button><button data-b="scores">SCORES (TAB)</button><button data-b="help">CONTROLS (H)</button><button data-b="team">SWITCH TEAM (T)</button><button data-b="lobby">LOBBY (L)</button></div>
       <div class="hint">W/S drive · A/D steer · SPACE jump · SHIFT boost · C powerslide · F ball cam · H help</div>
       <div class="status"></div>
       <div class="panel board"></div>
@@ -186,6 +192,7 @@ export class Hud {
         <div class="k">1 - 8</div><div>Quick chat</div>
         <div class="k">T</div><div>Switch team (when fair)</div>
         <div class="k">G</div><div>Garage: choose your car</div>
+        <div class="k">L</div><div>Leave the match, back to the lobby</div>
         <div class="k">Gamepad</div><div>RT/LT drive · stick steer/air · A jump · B boost · X powerslide/air roll · LB/RB roll · Y ball cam</div>
         <div class="k">Touch</div><div>Stick: steer + drive (air: pitch/yaw/flip direction) · JUMP · BOOST · DRIFT (powerslide / air roll) · CAM</div>
       </div></div>
@@ -268,6 +275,15 @@ export class Hud {
     this.clock.classList.toggle('ot', overtime);
     this.clock.classList.toggle('low', !overtime && clock <= 30);
   }
+
+  /** PC key hints beside the dial (hidden on touch): SPACE jump, SHIFT boost, lit while held. */
+  keys(visible: boolean, jump: boolean, boost: boolean): void {
+    const k = (this.keyHints ??= this.root.querySelector('.keys') as HTMLElement);
+    k.style.display = visible ? '' : 'none';
+    k.children[0]!.classList.toggle('on', jump);
+    k.children[1]!.classList.toggle('on', boost);
+  }
+  private keyHints: HTMLElement | undefined;
 
   /** The dial: boost (0..100) on the orange bars and in the number, speed (uu/s) on the white bars. */
   boost(amount: number, visible: boolean, speed = 0): void {
@@ -408,8 +424,8 @@ export class Hud {
       const rows = players.filter((p) => p.team === team && p.car >= 0).sort((a, b) => b.score - a.score);
       html += `<tr><td colspan="7" class="tname" style="color:${TEAMS[team]!.light}">${TEAMS[team]!.name}</td></tr>`;
       for (const p of rows) {
-        html += `<tr class="t${team}${p.id === me ? ' me' : ''}"><td>${esc(p.name || 'Player')}${p.bot ? '<span class="bot">BOT</span>' : ''}${p.id === mvp ? '<span class="mvp">MVP</span>' : ''}</td>
-          <td>${p.score}</td><td>${p.goals}</td><td>${p.assists}</td><td>${p.saves}</td><td>${p.shots}</td><td>${p.bot ? '' : p.ping}</td></tr>`;
+        html += `<tr class="t${team}${p.id === me ? ' me' : ''}"><td>${esc(p.name || 'Player')}${p.id === mvp ? '<span class="mvp">MVP</span>' : ''}</td>
+          <td>${p.score}</td><td>${p.goals}</td><td>${p.assists}</td><td>${p.saves}</td><td>${p.shots}</td><td>${p.ping || ''}</td></tr>`;
       }
     }
     return `<table><tr><th>PLAYER</th><th>SCORE</th><th>GOALS</th><th>ASSISTS</th><th>SAVES</th><th>SHOTS</th><th>PING</th></tr>${html}</table>`;

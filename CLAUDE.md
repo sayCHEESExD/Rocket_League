@@ -78,7 +78,16 @@ Never commit or push unless asked.
   per-segment box) geometry for long curved things like the monorail, screens >= 7 cm in front of their housings.
 - **Controls:** W/S are throttle AND air pitch (RL KBM), but a key already held at take-off is latched and pitches
   nothing until pressed again (`Controls` latches) - holding W into a jump used to somersault the car. A jump
-  pressed in the air still takes its flip direction from the raw keys. Pitch is zero on the ground.
+  pressed in the air still takes its flip direction from the raw keys. Pitch is zero on the ground. L = back to the
+  lobby. In a match a click locks the pointer (released for garage, social panel, results, leaving). PC shows
+  SPACE/SHIFT keycaps beside the boost dial (lit while held; hidden on touch).
+- **Stranded-car reset** (`Match.unstick`, server, after `advance`, before `quantizeWorld`): a car on its roof or
+  side (up.z < 0.45, < 3 wheels down, < 350 uu/s, on the floor) for 5 s is `placeCar`ed upright where it lies,
+  keeping heading and boost. `sim-match` gates it (still stuck at 4 s, upright by 6 s).
+- **Bots pass as players (user requirement).** No "Bot" anywhere in UI (scoreboard, name plates, MATCH FOUND card,
+  live board); bots get handles from `playerLikeName` (`shared/src/config/names.ts`) - the lobby pre-picks them
+  (`botNames` create option) so the card matches the match - and a jittering fake ping (`GameRoom.botPings`).
+  `PlayerState.bot` stays replicated for code only; never render it.
 - **Boost:** 12.5/s drain (a full tank = 8 s held), 880/930 uu/s^2 ground/air - deliberately longer than RL.
 - **Arena height is 2300 uu** (RL: 2044) - raised on request; tests use it.
 - **Enclosure:** the arena is sealed physically (SDF) and visually: `world/Barrier.ts` lattice over walls, top curve
@@ -116,7 +125,9 @@ Never commit or push unless asked.
   queue - or one waiting `LOBBY.fillWaitSeconds` - becomes `matchMaker.createRoom(ROOM_NAME, {mode, arena, expect})`
   + a `reserveSeatFor` per player (team picked by the lobby) sent as `MatchFound`. `GameRoom` with a mode: capacity
   2 x teamSize, bots fill to teamSize, ONE match (no rematch), then `ToLobby` and it closes; its first kickoff waits
-  for the `expect`ed players (max 10 s) and gets +2.5 s for the intro. It publishes live metadata (score, clock,
+  for the `expect`ed players (max 10 s) and gets +2.5 s for the intro. JOIN IN PROGRESS: a queue first fills live
+  rooms of its mode with a free seat (not Ended, > 30 s left or overtime) - `MatchFound` with `team: -1`,
+  `inProgress` - and the arrival takes over the last bot of a team. It publishes live metadata (score, clock,
   names) that the lobby's board reads via matchMaker.query. Without a mode a `GameRoom` is the old open room (15
   humans, matches back to back). Client: `core/App.ts` switches lobby / loading / match on one renderer;
   `lobby/` = `LobbyNet`, `LobbyWorld` (the Grand Prix stadium as the backdrop, pads, gates, showcase, hanging
@@ -156,8 +167,8 @@ Never commit or push unless asked.
 - **Audio** (`audio/Sfx.ts`, the user's recordings in `assets/audio`): `car.mp3` is the engine LOOP (trimmed, pitch =
   speed) for our car + 3 panned voices for the nearest other cars; `nitro.mp3` = ignition once, then 0.9-2.25 s looped
   while boosting (others: the ignition only); `racing-music.mp3` STREAMS through a media element (never decode it:
-  ~50 MB of samples) and restarts at 130.4 s (silent tail), levels by `setMusicMode` - lobby 0.75, match 0.3 (under the
-  engine), results 0.65 - times music_volume. Hits, jumps, horn, beeps stay synthesised. Audio starts on the first
+  ~50 MB of samples) and restarts at 130.4 s (silent tail), levels by `setMusicMode` - lobby, match and results all 0.75
+  (user: don't duck it in matches) - times music_volume. Hits, jumps, horn, beeps stay synthesised. Audio starts on the first
   gesture (`unlock`). Cars are silenced in the lobby (`silenceCars`).
 - **Car stripes are their own mesh** (`BuiltCar.stripes`, drawn with a polygon offset in `CarView`); roof stripes are
   lofted on the roof PANEL's sections. Never merge thin overlays into the body (Frostbite's stripes z-fought).

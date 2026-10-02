@@ -56,7 +56,13 @@ interface CreateOptions {
   arena?: number;
   /** How many players the lobby reserved seats for (the first kickoff waits for them). */
   expect?: number;
+  /** The bots' handles per team, as the lobby announced them. */
+  botNames?: [unknown, unknown];
 }
+
+/** Bot handles from the lobby: short plain strings only. */
+const cleanNames = (v: unknown): string[] =>
+  Array.isArray(v) ? v.filter((n): n is string => typeof n === 'string').map((n) => n.replace(/[^\w .-]/g, '').slice(0, 20)).filter(Boolean).slice(0, 8) : [];
 
 /**
  * The authoritative room: one Rocket League match for up to 15 humans, bots
@@ -123,7 +129,13 @@ export class GameRoom extends Room<GameState> {
         this.clock.setTimeout(() => void this.disconnect(), 1500);
       },
     }, mode
-      ? { teamSize: mode.teamSize, rematch: false, arena, expect: Math.min(mode.teamSize * 2, Math.max(0, Math.floor(Number(options.expect) || 0))) }
+      ? {
+          teamSize: mode.teamSize,
+          rematch: false,
+          arena,
+          expect: Math.min(mode.teamSize * 2, Math.max(0, Math.floor(Number(options.expect) || 0))),
+          botNames: [cleanNames(options.botNames?.[0]), cleanNames(options.botNames?.[1])],
+        }
       : { teamSize: null, rematch: true, arena });
     this.match.balanceBots();
     this.match.startMatch();
@@ -200,7 +212,10 @@ export class GameRoom extends Room<GameState> {
         this.clearEmotes();
         // a new match has started (its stats were reset): nobody's current match is credited yet
         if (this.committed.size && this.state.match.phase !== Phase.Ended) this.committed.clear();
-        if (this.match.tick % TICK_RATE === 0) this.publishLive();
+        if (this.match.tick % TICK_RATE === 0) {
+          this.publishLive();
+          this.botPings();
+        }
         const ms = performance.now() - t0;
         this.tickMs = this.tickMs * 0.98 + ms * 0.02;
         this.tickMax = Math.max(this.tickMax, ms);
@@ -275,7 +290,7 @@ export class GameRoom extends Room<GameState> {
     const m = this.state.match;
     const names: [string[], string[]] = [[], []];
     this.state.players.forEach((p) => {
-      if (p.car >= 0 && (p.team === 0 || p.team === 1)) names[p.team]!.push(p.bot ? `${p.name} (bot)` : p.name);
+      if (p.car >= 0 && (p.team === 0 || p.team === 1)) names[p.team]!.push(p.name);
     });
     const elapsed = m.clockRunning ? (this.match.tick - m.clockTick) / TICK_RATE : 0;
     const clock = Math.max(0, Math.round(m.overtime ? m.clock + elapsed : m.clock - elapsed));
@@ -295,6 +310,15 @@ export class GameRoom extends Room<GameState> {
     if (key === this.metaKey) return;
     this.metaKey = key;
     void this.setMetadata(meta);
+  }
+
+  /** Bots show a ping like anyone's: a steady figure per bot that wanders a little. */
+  private botPings(): void {
+    this.state.players.forEach((p) => {
+      if (!p.bot) return;
+      if (!p.ping) p.ping = 28 + Math.floor(Math.random() * 60);
+      else p.ping = Math.max(18, Math.min(140, p.ping + Math.round((Math.random() - 0.5) * 6)));
+    });
   }
 
   /** An emote ends when the driver needs their hands (or after `EMOTE.maxTicks`): the replicated clear. */

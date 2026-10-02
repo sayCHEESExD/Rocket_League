@@ -244,9 +244,9 @@ export class LobbyHud {
     const team = (t: number, names: string[]): string =>
       `<div class="team" style="background:${TEAMS[t]!.dark}cc;box-shadow:inset 0 3px 0 ${TEAMS[t]!.color}">
         <h3 style="color:${TEAMS[t]!.light}">${TEAMS[t]!.name}${t === myTeam ? ' · YOU' : ''}</h3>
-        ${names.map((n) => `<div>${esc(n)}</div>`).join('')}${Array.from({ length: Math.max(0, (mode?.teamSize ?? 1) - names.length) }, () => '<div style="opacity:.55">Bot</div>').join('')}</div>`;
+        ${names.map((n) => `<div>${esc(n)}</div>`).join('')}</div>`;
     this.mf.querySelector('.card')!.innerHTML = `
-      <div class="t">MATCH FOUND</div>
+      <div class="t">${m.inProgress ? 'JOINING MATCH' : 'MATCH FOUND'}</div>
       <div class="m" style="color:${mode?.color ?? '#fff'}">${mode ? `${mode.label} ${mode.name}` : ''} · ${esc(arena)}</div>
       <div class="teams">${team(0, m.blue)}<div class="mfvs">VS</div>${team(1, m.orange)}</div>
       <div class="s">GETTING READY…</div><div class="bar"><i></i></div>`;

@@ -1,5 +1,9 @@
 import {
   ARENAS,
+  playerLikeName,
+  forwardOf,
+  upOf,
+  v3,
   EMOTE,
   BALL,
   BallState,
@@ -57,6 +61,11 @@ export interface MatchOptions {
    * still loading - then a longer first countdown leaves room for the intro.
    */
   expect?: number;
+  /**
+   * Handles for the bots, per team (the lobby already showed them on its MATCH FOUND card).
+   * Bots never look like bots: a plain player handle, no tag. Missing names are made up.
+   */
+  botNames?: [string[], string[]];
 }
 
 /** Longest a playlist's first kickoff waits for its reserved players. */
@@ -78,13 +87,12 @@ interface Seat {
   respawnAsked: number;
 }
 
+/** A car stranded on its roof or side this long is put back on its wheels (bots never right themselves). */
+const STUCK_TICKS = 5 * TICK_RATE;
+
 /** Fewest ticks between two granted respawn requests from one player. */
 const RESPAWN_GAP = 10 * TICK_RATE;
 
-const BOT_NAMES = [
-  'Bolt', 'Turbo', 'Sprocket', 'Nitro', 'Piston', 'Gizmo', 'Blitz', 'Comet',
-  'Rumble', 'Zippy', 'Dynamo', 'Rocket', 'Spark', 'Torque', 'Chomp', 'Vortex',
-];
 
 /**
  * THE AUTHORITATIVE MATCH: one world, up to sixteen cars (humans + bots), and
@@ -150,7 +158,9 @@ export class Match {
     else if (!room(team)) team = 1 - team;
     if (!room(team)) return { car: -1, team };
     let slot = -1;
-    for (let i = 0; i < MAX_CARS; i += 1) {
+    // take over the bot added LAST on that side: the earlier ones play under the names a
+    // playlist's MATCH FOUND card announced, the last ones are the seats kept for these players
+    for (let i = MAX_CARS - 1; i >= 0; i -= 1) {
       const s = this.seats[i];
       if (s?.bot && this.world.cars[i]!.team === team) {
         this.host.removeBot(s.id);
@@ -199,7 +209,7 @@ export class Match {
         this.world.cars[slot]!.team = team;
         this.spawnFresh(slot);
         const row = this.host.addBot(id, team, slot);
-        row.name = BOT_NAMES[(this.botCounter - 1) % BOT_NAMES.length]!;
+        row.name = this.options.botNames?.[team]?.shift() ?? playerLikeName(Math.random);
         count += 1;
       }
     }
@@ -382,6 +392,47 @@ export class Match {
     this.setPhase(Phase.Countdown, MATCH.countdown + extra);
   }
 
+  /** Ticks each car has spent stranded on its roof or side. */
+  private readonly stuck = new Array<number>(MAX_CARS).fill(0);
+  private readonly up = v3();
+  private readonly fwd = v3();
+
+  /**
+   * THE STRANDED-CAR RESET: a car lying on its roof or side - barely moving, off
+   * its wheels, down on the floor (not driving a wall, not mid-air) - for
+   * `STUCK_TICKS` is set back on its wheels where it lies, keeping its heading.
+   * Humans can flip back with a jump (the roof auto-flip); bots, and anyone who
+   * landed awkwardly against a wall, could stay there for good. Server-side, between
+   * ticks, like a respawn: snapshots carry the result to every client.
+   */
+  private unstick(): void {
+    if (this.state.phase !== Phase.Play && this.state.phase !== Phase.Goal) {
+      this.stuck.fill(0);
+      return;
+    }
+    const w = this.world;
+    for (let i = 0; i < MAX_CARS; i += 1) {
+      const c = w.cars[i]!;
+      if (!c.active || c.demolished) {
+        this.stuck[i] = 0;
+        continue;
+      }
+      upOf(this.up, c.quat);
+      const speed = Math.hypot(c.vel.x, c.vel.y, c.vel.z);
+      const stranded = this.up.z < 0.45 && c.wheels < 3 && speed < 350 && c.pos.z < 220;
+      this.stuck[i] = stranded ? this.stuck[i]! + 1 : 0;
+      if (this.stuck[i]! < STUCK_TICKS) continue;
+      this.stuck[i] = 0;
+      forwardOf(this.fwd, c.quat);
+      // the heading it had, read off its nose (or its roof, if the nose points straight up or down)
+      const yaw = Math.hypot(this.fwd.x, this.fwd.y) > 0.2 ? Math.atan2(this.fwd.y, this.fwd.x) : Math.atan2(-this.up.y, -this.up.x);
+      const boost = c.boost;
+      placeCar(c, c.pos.x, c.pos.y, yaw);
+      c.boost = boost;
+      this.seats[i]?.bot?.reset();
+    }
+  }
+
   /** A playlist's first kickoff is on hold until its players are here (phaseEnd 0 = open-ended). */
   private waiting = false;
   private waitUntil = 0;
@@ -457,6 +508,7 @@ export class Match {
     }
     this.prevBall.copyFrom(w.ball);
     w.advance(this.inputs);
+    this.unstick();
     quantizeWorld(w);
     this.sincePlay += 1 / TICK_RATE;
 

@@ -106,6 +106,30 @@ if (c3.found[0]) {
   await until(() => m3.state.players && [...m3.state.players.values()].filter((p) => p.car >= 0).length === 6, 3000);
   const cars = [...(m3.state.players?.values() ?? [])].filter((p) => p.car >= 0);
   check(cars.length === 6 && cars.filter((p) => p.bot).length === 5, '3v3: six cars, five of them bots');
+  const card = [...c3.found[0].blue, ...c3.found[0].orange];
+  check(card.length === 6 && !card.some((n) => /bot/i.test(n)), `the MATCH FOUND card shows six player names, no "Bot" (${card.join(', ')})`);
+  const botRows = cars.filter((p) => p.bot);
+  check(botRows.every((p) => card.includes(p.name)), 'the bots play under the names the card announced');
+  await sleep(1500);
+  check(botRows.every((p) => p.ping > 0) || [...m3.state.players.values()].filter((p) => p.bot).every((p) => p.ping > 0), 'bots show a ping like anyone');
+
+  console.log('\nJoining a match in progress');
+  const d = await join('Delta', lobbyId);
+  await sleep(1200); // the lobby reads the live rooms once a second
+  d.room.send('queue', '3v3');
+  await until(() => d.found.length, 4000, 100);
+  const fd = d.found[0];
+  check(!!fd && fd.inProgress === true, 'a queued player is sent straight into the 3v3 in progress (no wait)');
+  if (fd) {
+    const md = await d.c.consumeSeatReservation(fd.reservation);
+    md.onMessage('*', () => undefined);
+    check(md.roomId === m3.roomId, 'into the same room');
+    await until(() => [...m3.state.players.values()].filter((p) => !p.bot).length === 2, 3000);
+    const now = [...m3.state.players.values()].filter((p) => p.car >= 0);
+    check(now.length === 6 && now.filter((p) => !p.bot).length === 2, 'they took over a bot: still six cars, now two players');
+    md.leave();
+  }
+  d.room.leave();
   m3.leave();
 }
 

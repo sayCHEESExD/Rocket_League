@@ -1,7 +1,7 @@
 import { emptyInput, quantiseInput, type CarInput } from '@rlb/shared';
 
 /** One-shot actions the UI layer reacts to. */
-export type UiAction = 'garage' | 'ballcam' | 'scoreboard-on' | 'scoreboard-off' | 'help' | 'menu' | 'switch-team' | `chat:${number}`;
+export type UiAction = 'garage' | 'lobby' | 'ballcam' | 'scoreboard-on' | 'scoreboard-off' | 'help' | 'menu' | 'switch-team' | `chat:${number}`;
 
 const clamp1 = (v: number): number => (v < -1 ? -1 : v > 1 ? 1 : v);
 const dead = (v: number, d = 0.12): number => (Math.abs(v) < d ? 0 : (v - Math.sign(v) * d) / (1 - d));
@@ -68,6 +68,7 @@ export class Controls {
     if (code === 'KeyF' || code === 'KeyB') this.actions.push('ballcam');
     if (code === 'KeyH') this.actions.push('help');
     if (code === 'KeyG') this.actions.push('garage');
+    if (code === 'KeyL') this.actions.push('lobby');
     if (code === 'Escape') this.actions.push('menu');
     if (code === 'KeyT') this.actions.push('switch-team');
     const digit = /^Digit([1-8])$/.exec(code);
