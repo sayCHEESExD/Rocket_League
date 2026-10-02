@@ -1,0 +1,19 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 5480,
+      "autoPort": false
+    },
+    {
+      "name": "stable",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "preview", "--workspace", "@rlb/client"],
+      "port": 4480,
+      "autoPort": false
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+# LINE ENDINGS FOR THE FILES THAT ARE RUN ON LINUX.
+#
+# The repository is developed on Windows, where Git's autocrlf hands the
+# working tree CRLF. That is fine for TypeScript, but the deployment files are
+# read by a Linux container and by GitHub Actions: a Dockerfile or a shell
+# script with CR at the end of every line is the classic "$'\r': command not
+# found" failure, and it only shows up in CI.
+#
+# Committing these as LF costs nothing on Windows (editors and Git handle it)
+# and takes that whole class of failure off the table. After adding this file,
+# `git add --renormalize .` rewrites what is already committed.
+Dockerfile text eol=lf
+.dockerignore text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.sh text eol=lf
+*.mjs text eol=lf
+
+# The supplied art, audio and the player rig: never touched by line-ending
+# conversion, which would corrupt them.
+*.png binary
+*.jpg binary
+*.mp3 binary
+*.fbx binary
+*.zip binary
