@@ -104,13 +104,7 @@ export const tempest: CarModel = {
     p.flare('black', 0.53, 0.19, 0.205, 0.25, 0.05, Math.PI - 0.05, 0.44, 0.505, 6);
     p.flare('black', -0.42, 0.19, 0.207, 0.254, 0.05, Math.PI - 0.05, 0.45, 0.512, 6);
     p.plan('black', [[0.865, 0], [0.865, 0.36], [0.82, 0.45], [0.74, 0.47]], 0.06, 0.016);
-    // roof rails and scoop, the rear spoiler, diffuser and exhausts
-    for (const zz of [-0.27, 0.27]) {
-      p.box('black', 0.34, 0.014, 0.018, -0.23, 0.652, zz);
-      for (const xx of [-0.08, -0.38]) p.box('black', 0.02, 0.02, 0.016, xx, 0.64, zz);
-    }
-    p.plan('black', [[-0.05, 0], [-0.05, 0.07], [-0.2, 0.09], [-0.22, 0]], 0.636, 0.026);
-    p.side('black', [[-0.44, 0.592], [-0.53, 0.585], [-0.535, 0.598], [-0.45, 0.606]], null, 0.66);
+    // the rear spoiler, diffuser and exhausts
     p.side('black', [[-0.6, 0.42], [-0.68, 0.45], [-0.68, 0.462], [-0.61, 0.434]], null, 0.86);
     p.plan('black', [[-0.6, 0], [-0.6, 0.36], [-0.69, 0.34], [-0.69, 0]], 0.08, 0.012);
     for (const zz of [0.1, 0.22]) p.cyl('chrome', 0.024, 0.024, 0.05, -0.65, 0.15, zz, 'x', 14, true);

@@ -26,13 +26,13 @@ import { S } from './units.js';
 
 export { GROUND as GROUND_Y };
 
-/** Tinted glass, dark like the reference cars' - the driver still shows through. */
+/** The windscreen of the open-top cars: lightly tinted, the driver shows through it. */
 const glassMaterial = new MeshStandardMaterial({
-  color: 0x0c1520,
-  metalness: 0.85,
+  color: 0x1c2c3c,
+  metalness: 0.8,
   roughness: 0.04,
   transparent: true,
-  opacity: 0.6,
+  opacity: 0.32,
   depthWrite: false,
   envMapIntensity: 2,
   side: DoubleSide,
@@ -297,7 +297,8 @@ export class CarView {
     const spec = CAR_MODELS[this.model]!.seat;
     const r = this.rider.root;
     if (!this.rider.hipLocal(hip)) return;
-    r.position.set(spec.x - hip.x * spec.scale, GROUND + spec.h - hip.y * spec.scale, -hip.z * spec.scale);
+    // +3 cm: the cars are open tops, sit the driver up so they show over the sills
+    r.position.set(spec.x - hip.x * spec.scale, GROUND + spec.h + 0.03 - hip.y * spec.scale, -hip.z * spec.scale);
   }
 
   /**

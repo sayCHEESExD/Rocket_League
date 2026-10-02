@@ -139,6 +139,7 @@ const VIEWS: Record<string, { pos: [number, number, number]; at: [number, number
   front: { pos: [3.9, 0.3, 0], at: [0, 0.05, 0], fov: 22 },
   rear: { pos: [-2.5, 0.85, 1.9], at: [0, 0.05, 0], fov: 30 },
   top: { pos: [0.1, 4.2, 0.001], at: [0.1, 0, 0], fov: 28 },
+  chase: { pos: [-3.0, 0.75, 0], at: [0.6, 0.15, 0], fov: 34 },
 };
 const cam = new PerspectiveCamera(30, 1, 0.05, 100);
 const look = new Vector3();

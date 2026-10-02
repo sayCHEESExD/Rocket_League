@@ -359,6 +359,45 @@ const WELL = 0.07;
  * Skin a surface into a mesh: position, uv (into its atlas block), colour (white, or
  * dark in a carved wheel well), creased normals.
  */
+/**
+ * An open sheet over part of a section loft - the windscreen of an open-top car: from
+ * control corner `from` round the top to the other side, between two x, no caps, one
+ * palette swatch.
+ */
+export const shell = (stations: Station[], xFront: number, xBack: number, from: number, sw: number, step = 0.03, fil = 3): BufferGeometry => {
+  const prof = new Profile(stations);
+  const n = polyCount(prof.k, fil);
+  const cnt = Math.max(2, Math.ceil((xFront - xBack) / step));
+  const rings: number[][] = [];
+  const ctrl: Ctrl[] = [];
+  let poly: Poly | undefined;
+  for (let i = 0; i <= cnt; i += 1) {
+    const x = xFront - ((xFront - xBack) * i) / cnt;
+    poly = fillet(prof.at(x, ctrl), poly, fil);
+    const i0 = poly.corner[from] ?? 1;
+    const r: number[] = [];
+    for (let j = i0; j < n; j += 1) r.push(x, GROUND + poly.h[j]!, poly.z[j]!);
+    for (let j = n - 2; j >= i0; j -= 1) r.push(x, GROUND + poly.h[j]!, -poly.z[j]!);
+    rings.push(r);
+  }
+  const pos: number[] = [];
+  for (let a = 0; a + 1 < rings.length; a += 1) {
+    const A = rings[a]!;
+    const B = rings[a + 1]!;
+    for (let j = 0; j + 3 < A.length; j += 3) {
+      const q = [A.slice(j, j + 3), B.slice(j, j + 3), A.slice(j + 3, j + 6), A.slice(j + 3, j + 6), B.slice(j, j + 3), B.slice(j + 3, j + 6)];
+      for (const v of q) pos.push(...v);
+    }
+  }
+  const count = pos.length / 3;
+  const [u, v] = swatchUV(sw);
+  const g = new BufferGeometry();
+  g.setAttribute('position', new Float32BufferAttribute(pos, 3));
+  g.setAttribute('uv', new Float32BufferAttribute(new Array<number>(count * 2).fill(0).map((_, i) => (i % 2 ? v : u)), 2));
+  g.setAttribute('color', new Float32BufferAttribute(new Array<number>(count * 3).fill(1), 3));
+  return creased(g, 50);
+};
+
 export const loft = (surf: Surface, carve?: Carve): BufferGeometry => {
   const prof = new Profile(surf.stations);
   const k = prof.k;

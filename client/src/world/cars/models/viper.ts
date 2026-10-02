@@ -6,7 +6,7 @@ import { carbon, chrome, gloss, grille, honey, inPoly, led, satin, seg, slats, w
  * blunt black fascia framed in green (a centre bar and a brow), slim angular LEDs at
  * its top corners, a black slot across the hood, chunky black overfenders, a black
  * lower flank that sweeps up into a rear-quarter intake, a long raked cabin flowing
- * into the deck, and a tall black wing. Twin-five-spoke black rims, red calipers.
+ * into the deck, and a low black wing. Twin-five-spoke black rims, red calipers.
  */
 export const viper: CarModel = {
   id: 0,
@@ -113,10 +113,10 @@ export const viper: CarModel = {
     p.plan('carbon', [[-0.6, 0], [-0.6, 0.38], [-0.705, 0.36], [-0.705, 0]], 0.07, 0.012);
     for (const zz of [0.09, 0.2, 0.31]) p.side('carbon', [[-0.58, 0.078], [-0.705, 0.078], [-0.705, 0.17], [-0.66, 0.17]], zz - 0.005, zz + 0.005);
     for (const zz of [0.07, 0.13]) p.cyl('chrome', 0.022, 0.022, 0.06, -0.668, 0.15, zz, 'x', 14, true);
-    // the tall wing on swan necks, with endplates
-    p.beam('black', [-0.5, 0.37, 0.2], [-0.56, 0.56, 0.2], 0.024, 0.012);
-    p.wing('black', -0.47, 0.56, 0.2, 0.032, 0.98, 0.1);
-    p.side('black', [[-0.45, 0.51], [-0.68, 0.52], [-0.69, 0.615], [-0.47, 0.6]], 0.478, 0.488);
+    // the wing on short swan necks, with endplates - kept low so the driver shows over it
+    p.beam('black', [-0.52, 0.36, 0.2], [-0.56, 0.45, 0.2], 0.024, 0.012);
+    p.wing('black', -0.49, 0.45, 0.2, 0.032, 0.98, 0.1);
+    p.side('black', [[-0.47, 0.36], [-0.7, 0.37], [-0.71, 0.5], [-0.49, 0.49]], 0.478, 0.488);
     p.mirror('green', 'black', 0.22, 0.405, 0.448);
   },
   seat: { x: -0.17, h: 0.17, scale: 0.17 },

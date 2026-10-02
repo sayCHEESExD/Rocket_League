@@ -96,15 +96,14 @@ export const breaker: CarModel = {
     // black bumper and grille block, side skirts
     p.plan('black', [[0.81, 0], [0.81, 0.3], [0.77, 0.38], [0.7, 0.4]], 0.12, 0.09);
     p.box('black', 0.5, 0.05, 0.03, 0.05, 0.16, 0.405, undefined, true);
-    // the high wing on two struts, blue LEDs at its tips, a white trailing edge
-    for (const zz of [-0.17, 0.17]) p.beam('black', [-0.47, 0.4, zz], [-0.53, 0.6, zz], 0.035, 0.022, false);
-    p.wing('orange', -0.45, 0.62, 0.18, 0.036, 0.84, 0.08);
-    p.box('white', 0.012, 0.012, 0.84, -0.632, 0.6, 0);
-    p.side('black', [[-0.44, 0.57], [-0.65, 0.58], [-0.65, 0.67], [-0.46, 0.66]], 0.42, 0.432);
-    p.box('blue', 0.03, 0.014, 0.014, -0.47, 0.665, 0.426, undefined, true);
+    // the wing on two short struts (low, so the driver shows over it), blue LEDs at its tips
+    for (const zz of [-0.17, 0.17]) p.beam('black', [-0.5, 0.39, zz], [-0.54, 0.48, zz], 0.035, 0.022, false);
+    p.wing('orange', -0.47, 0.49, 0.18, 0.036, 0.84, 0.08);
+    p.box('white', 0.012, 0.012, 0.84, -0.652, 0.47, 0);
+    p.side('black', [[-0.46, 0.42], [-0.67, 0.43], [-0.67, 0.53], [-0.48, 0.52]], 0.42, 0.432);
+    p.box('blue', 0.03, 0.014, 0.014, -0.49, 0.525, 0.426, undefined, true);
     p.plan('black', [[-0.58, 0], [-0.58, 0.3], [-0.64, 0.28], [-0.64, 0]], 0.17, 0.06);
-    // roof scoop, mirrors
-    p.plan('black', [[0.0, 0], [0.0, 0.06], [-0.12, 0.075], [-0.14, 0]], 0.62, 0.03);
+    // mirrors
     p.mirror('orange', 'black', 0.16, 0.43, 0.39);
   },
   seat: { x: -0.17, h: 0.208, scale: 0.17 },

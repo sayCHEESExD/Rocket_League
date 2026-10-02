@@ -1,6 +1,6 @@
 import { BufferGeometry, MeshPhysicalMaterial, type Texture } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { BLOCK, GROUND, bakeLivery, cab, loft, type Carve, type Mat, type Pt, type Station } from './loft.js';
+import { BLOCK, GROUND, bakeLivery, cab, loft, shell, type Carve, type Mat, type Pt } from './loft.js';
 import { breaker } from './models/breaker.js';
 import { frostbite } from './models/frostbite.js';
 import { hotshot } from './models/hotshot.js';
@@ -88,30 +88,38 @@ export const buildCar = (id: number): BuiltCar => {
   const model = CAR_MODELS[id] ?? CAR_MODELS[0]!;
   const hit = cache.get(model.id);
   if (hit) return hit;
-  const names = Object.keys(model.palette);
+  // the cockpit: every car is an open top, so the driver shows - a dark tub with a seat
+  // and a roll hoop, from the windscreen base back to just behind the hoop
+  const interior: Mat = { r: 14, g: 15, b: 18, rough: 0.8, metal: 0, clear: 0, glow: 0 };
+  const palette: Record<string, Mat> = { ...model.palette, __interior: interior };
+  const names = Object.keys(palette);
   const swatch = (n: string): number => {
     const i = names.indexOf(n);
     if (i < 0) throw new Error(`${model.name}: no paint "${n}"`);
     return i;
   };
-  const paletteList = names.map((n) => model.palette[n]!);
-  // under the glass is the cabin: a dark interior, not paint showing through the windows
-  const cabX0 = model.cabin[model.cabin.length - 1]!.x;
-  const cabX1 = model.cabin[0]!.x;
-  const interior: Mat = { r: 14, g: 15, b: 18, rough: 0.8, metal: 0, clear: 0, glow: 0 };
-  const cabinAt = (x: number): number => {
-    const cs = model.cabin;
+  const paletteList = names.map((n) => palette[n]!);
+  const cs = model.cabin;
+  /** The glass cabin's section at x (linear between stations). */
+  const cabAt = (x: number): { yb: number; yt: number; wb: number; wt: number } => {
     for (let i = 0; i + 1 < cs.length; i += 1) {
       const a = cs[i]!;
       const b = cs[i + 1]!;
-      if (x <= a.x && x >= b.x) return a.wb + ((x - a.x) / (b.x - a.x || 1)) * (b.wb - a.wb);
+      if (x <= a.x && x >= b.x) {
+        const t = (x - a.x) / (b.x - a.x || 1);
+        return { yb: a.yb + (b.yb - a.yb) * t, yt: a.yt + (b.yt - a.yt) * t, wb: a.wb + (b.wb - a.wb) * t, wt: a.wt + (b.wt - a.wt) * t };
+      }
     }
-    return 0;
+    const e = x > cs[0]!.x ? cs[0]! : cs[cs.length - 1]!;
+    return { yb: e.yb, yt: e.yt, wb: e.wb, wt: e.wt };
   };
+  const hoopX = model.seat.x - 0.17;
+  const pitX0 = Math.max(cs[cs.length - 1]!.x, hoopX - 0.06);
+  const pitX1 = cs[0]!.x;
   const paint = (p: Pt): Mat => {
-    const inside = p.surf === 'body' && p.ny > 0.35 && p.x < cabX1 && p.x > cabX0;
-    p.cab = inside ? p.z - cabinAt(p.x) : 9;
-    if (inside && p.x < cabX1 - 0.012 && p.x > cabX0 + 0.012 && p.cab < -0.012) return interior;
+    const inside = p.surf === 'body' && p.ny > 0.35 && p.x < pitX1 && p.x > pitX0;
+    p.cab = inside ? p.z - cabAt(p.x).wb : 9;
+    if (inside && p.x < pitX1 - 0.012 && p.x > pitX0 + 0.012 && p.cab < -0.012) return interior;
     return model.paint(p, model.palette);
   };
 
@@ -133,54 +141,34 @@ export const buildCar = (id: number): BuiltCar => {
     return null;
   };
 
-  // the roof panel: a thin painted lid over the top of the glass
-  const roofSts = model.cabin.filter((s) => s.x <= model.roof[0] + 0.13 && s.x >= model.roof[1] - 0.13);
-  const lidStations: Station[] = roofSts.map((s) => {
-    const cr = s.crown ?? 0.012;
-    return {
-      x: Math.min(model.roof[0], Math.max(model.roof[1], s.x)),
-      p: [
-        [s.yt - 0.03, 0, 0],
-        [s.yt - 0.03, s.wt + 0.005, 0.003],
-        [s.yt - 0.022, s.wt + 0.016, 0.004],
-        [s.yt - 0.01, s.wt + 0.017, 0.006],
-        [s.yt + 0.004, s.wt + 0.006, 0.01],
-        [s.yt + cr * 0.8 + 0.008, s.wt - 0.05, 0.05],
-        [s.yt + cr + 0.012, s.wt * 0.38, s.wt * 0.3],
-        [s.yt + cr + 0.012, 0, 0],
-      ],
-    };
-  });
-  const lid = lidStations.filter((s, i) => lidStations.findIndex((o) => Math.abs(o.x - s.x) < 1e-4) === i);
   const parts = new Parts(swatch);
   model.parts(parts);
   // brake calipers: on the discs behind the spokes, they do not spin
   for (const wx of [wh.front, wh.rear]) {
     parts.box(model.caliper, 0.05, 0.075, 0.03, wx - wh.r * 0.42, wh.r * 1.32, wh.track - wh.width * 0.12, { z: 0.55 }, true);
   }
-  // window pillars (A at the windscreen, B in the middle, C at the back)
-  const cs = model.cabin;
+  // a short raked windscreen in a frame (A pillars and a top rail), cut well below the old roof
   const first = cs[0]!;
-  const last = cs[cs.length - 1]!;
-  const front = cs.find((s) => s.x <= model.roof[0] + 0.001) ?? cs[1]!;
-  const back = [...cs].reverse().find((s) => s.x >= model.roof[1] - 0.001) ?? cs[cs.length - 2]!;
-  parts.beam(model.pillar, [first.x, first.yt, first.wb * 0.985], [front.x, front.yt - 0.012, front.wt + 0.012], 0.026, 0.02);
-  parts.beam(model.pillar, [back.x, back.yt - 0.012, back.wt + 0.012], [last.x, last.yt, last.wb * 0.985], 0.032, 0.02);
-  const mid = (front.x + back.x) / 2;
-  const midSt = cs.reduce((p, c) => (Math.abs(c.x - mid) < Math.abs(p.x - mid) ? c : p), cs[1]!);
-  parts.beam(model.pillar, [mid, midSt.yb + 0.02, midSt.wb + 0.002], [mid, midSt.yt - 0.018, midSt.wt + 0.014], 0.022, 0.016);
+  const screenX = first.x - (first.x - model.roof[0]) * 0.55;
+  const top = cabAt(screenX);
+  parts.beam(model.pillar, [first.x, first.yt, first.wb * 0.985], [screenX, top.yt - 0.004, top.wt + 0.026], 0.024, 0.018);
+  parts.box(model.pillar, 0.022, 0.016, (top.wt + 0.026) * 2, screenX, top.yt + 0.002, 0);
+  // a low roll hoop behind the driver - below their head, so the chase camera sees them
+  const hoop = cabAt(hoopX);
+  const hoopTop = hoop.yb + 0.085;
+  parts.beam(model.pillar, [hoopX, hoop.yb - 0.01, 0.24], [hoopX - 0.02, hoopTop, 0.22], 0.022, 0.022);
+  parts.box(model.pillar, 0.022, 0.022, 0.462, hoopX - 0.02, hoopTop, 0);
 
   const t0 = performance.now();
-  const liv = bakeLivery(model.body, lid.length >= 2 ? lid : null, paletteList, paint, LIVERY_W);
+  const liv = bakeLivery(model.body, null, paletteList, paint, LIVERY_W);
   const bakeMs = performance.now() - t0;
   const lod = (far: boolean): CarLod => {
     const fil = far ? 2 : 4;
     const list = [loft({ stations: model.body, block: BLOCK.body, caps: 'blocks', step: far ? 0.075 : 0.035, fil }, carve)];
-    if (lid.length >= 2) list.push(loft({ stations: lid, block: BLOCK.lid, caps: swatch(model.pillar), step: far ? 0.1 : 0.04, fil }));
     const wheel = wheelGeometry(wh, far ? 1 : 0);
     return {
       body: mergeGeometries([...list, ...parts.list])!,
-      glass: loft({ stations: cs.map((s) => cab(s.x, s.yb, s.yt, s.wb, s.wt, s.crown)), block: BLOCK.palette, caps: 0, step: far ? 0.12 : 0.04, fil: far ? 2 : 3 }),
+      glass: shell(cs.map((s) => cab(s.x, s.yb, s.yt, s.wb, s.wt, s.crown)), first.x, screenX, 2, 0, far ? 0.08 : 0.03, far ? 2 : 3),
       tyre: wheel.tyre,
       rim: wheel.rim,
     };

@@ -72,8 +72,9 @@ Never commit or push unless asked.
   face, distance to the cabin base `p.cab`) into a 1024x512 atlas (512 on phones): albedo + ORM (R clearcoat, G
   roughness, B metal, A glow - emission = colour x alpha x 6, patched into one MeshPhysicalMaterial per car). Parts
   (`cars/parts.ts`: wings, flares, splitters, mirrors...) sample palette swatches in the same atlas: body + roof panel
-  + pillars + parts = ONE mesh/material; glass is a separate transparent loft (dark tint, rider visible); under the
-  glass the body is painted as interior. Wheels (`cars/wheels.ts`): tyre + rim instanced pools per model, rim design
+  + parts = ONE mesh/material. ALL CARS ARE OPEN TOPS (user: see the Bloxity driver while driving): no roof, side or
+  rear glass - a short, lightly tinted windscreen (`shell`) in a frame, a low roll hoop, the cockpit tub painted as
+  interior; drivers sit 3 cm higher (`CarView.seat`); wings stay LOW (below the driver from the chase camera). Wheels (`cars/wheels.ts`): tyre + rim instanced pools per model, rim design
   per reference. TWO LODs (`BuiltCar.lods`, switched in `CarView` at 26/21 m): far = coarser loft and plain wheels,
   same livery. ~10k tris body + 4 x 2.7k wheels near. Paint looks per arena: `ThemeLook.carEnv` (reflection) and
   `carShade` (albedo; the day sun washes colours out) via `setCarEnvironment` (Game.applyLook, Lobby.enter).
